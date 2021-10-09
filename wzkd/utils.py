@@ -1,16 +1,17 @@
-from datetime import timezone
 import datetime
+from datetime import datetime, timezone
+
   
   
 # Getting the current date
 
-def EndToTimestamp(end_date):
-    end_date = datetime.datetime.now(timezone.utc)
+def ToTimestamp(date):
+    """
+    API requires UTC timestamp in milliseconds for the end/{end}/ path variable
+    """
+    date = datetime.now(timezone.utc)
+    epoch_millis = int(date.timestamp() * 1000)
     
-    utc_time = end_date.replace(tzinfo=timezone.utc)
-    utc_timestamp = utc_time.timestamp()
-    
-    #print(utc_timestamp)
-    return utc_timestamp
+    return epoch_millis
 
 # summary2 = await player.matchesSummary(Title.ModernWarfare, Mode.Warzone, end= utc_timestamp, limit=15)
