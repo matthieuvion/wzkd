@@ -1,3 +1,4 @@
+from logging import disable
 import streamlit as st
 
 import asyncio
@@ -39,10 +40,15 @@ def main():
                 selected_username = st.text_input('username', 'user#1235')
                 # may want to use session state here for username ?
             submit_user_button = st.form_submit_button('submit')
-        
-        if submit_user_button:
-            with st.expander("Lifetime Profile", False):
-                st.write('add lifetime stats here')
+
+        st.sidebar.subheader('Navigation')
+        st.checkbox('Profile')
+        st.checkbox('Historical data')
+        st.checkbox('About')
+#    if submit_user_button:
+#        with st.expander("Lifetime Profile", False):
+#            st.write('add lifetime stats here')
+
 
 #
         # maybe add a menu there with several "pages"
@@ -57,18 +63,30 @@ def main():
                 Platform.BattleNet, selected_username, Title.ModernWarfare, Mode.Warzone, limit=20
                 )
             )
-        st.header(selected_username)
+        #st.header(selected_username)
+        with st.expander(selected_username, False):
+            st.write("lifetime stats")
+            st.metric(label="KD", value="0.75", delta="0.1")
 
         # Last Match focus
-        st.markdown('**Your very last match**')
+        st.markdown('**Last match performance**')
         last_match_col1, last_match_col2, last_match_col3 = st.columns(3)
-        last_match_col1.metric(label="KD", value="0.75", delta="0.1")
+        last_match_col1.metric(label="kD", value="Plunder", delta="0.1")
         last_match_col2.metric(label="K/D/A", value="1/2/4")
         last_match_col3.metric(label="Gulag", value="W")
 
 
         # Match History
-        st.markdown("**Match History**")
+        st.markdown("**Matches History**")
+        displayCol1, displayCol2, displayCol3 = st.columns(3)
+        with displayCol1:
+            st.checkbox("history")
+        with displayCol2:
+            st.checkbox("sessions")
+        with displayCol3:
+            st.checkbox("teammates")
+        
+                
         df_matches = MatchesToDf(matches)
         df_matches_formated = FormatMatches(df_matches)
         st.table(df_matches_formated)
