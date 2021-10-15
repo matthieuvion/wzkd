@@ -1,5 +1,6 @@
 from logging import disable
 import streamlit as st
+from st_aggrid import AgGrid
 
 import asyncio
 import os
@@ -10,7 +11,7 @@ from callofduty import Mode, Platform, Title
 from callofduty.client import Client
 import addons
 import utils
-from utils import MatchesToDf, FormatMatches
+from utils import MatchesToDf, MatchesStandardize, MatchesPerDay
 
 st.set_page_config(layout="wide")
 load_dotenv()
@@ -28,12 +29,11 @@ def init_session():
 def main():
     
     # Sidebar
-    # st.sidebar.title("WZKD")
-    st.sidebar.subheader('Player')
 
     with st.sidebar:
+        st.subheader('Search Player')
         with st.form(key='loginForm'):
-            col1, col2 = st.columns(2)
+            col1, col2 = st.columns((1,2))
             with col1:
                 selected_platform = st.selectbox('platform', ('Bnet', 'Xbox', 'PlaySt'))
             with col2:
@@ -52,44 +52,57 @@ def main():
 
 #
         # maybe add a menu there with several "pages"
-
+    
     # Main
+
+    st.title("WZKD")
+    st.caption('Warzone COD API demo app')
+    with st.expander(selected_username, False):
+        st.write("lifetime stats")
+        st.metric(label="KD", value="0.75", delta="0.1")
+        col11, col21,col31 = st.columns((1,2,1))
+        with col11:
+            st.write("col 1 here") 
+        with col21:
+            st.write("col 2 here") 
+        with col31:
+            st.write("col 3 here")       
+    
     if submit_user_button:
         client = init_session()
         # st.write(client) # appears that our client is initiated everytime -,-
-
+    
         matches =  asyncio.run(
             client.GetMatchesDetailed(
                 Platform.BattleNet, selected_username, Title.ModernWarfare, Mode.Warzone, limit=20
                 )
             )
-        #st.header(selected_username)
-        with st.expander(selected_username, False):
-            st.write("lifetime stats")
-            st.metric(label="KD", value="0.75", delta="0.1")
+        
 
         # Last Match focus
-        st.markdown('**Last match performance**')
-        last_match_col1, last_match_col2, last_match_col3 = st.columns(3)
-        last_match_col1.metric(label="kD", value="Plunder", delta="0.1")
-        last_match_col2.metric(label="K/D/A", value="1/2/4")
-        last_match_col3.metric(label="Gulag", value="W")
-
+        st.markdown('**Last match Detailed Scorecard**')
+        with st.expander("Monday 10th October 23h37", True):
+            st.caption('to do details stat for last match played')
 
         # Match History
+        st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
         st.markdown("**Matches History**")
-        displayCol1, displayCol2, displayCol3 = st.columns(3)
-        with displayCol1:
-            st.checkbox("history")
-        with displayCol2:
-            st.checkbox("sessions")
-        with displayCol3:
-            st.checkbox("teammates")
         
-                
-        df_matches = MatchesToDf(matches)
-        df_matches_formated = FormatMatches(df_matches)
-        st.table(df_matches_formated)
+        matches_display = st.radio(label = '', options = ['History','Sessions','Teammates'])
+        if matches_display == "History":
+            df_matches = MatchesToDf(matches)
+            df_matches_formated = MatchesStandardize(df_matches)
+            dict_dfs = MatchesPerDay(df_matches_formated)
+            for key, value in dict_dfs.items():
+                st.write(key)
+                st.table(value)
+        if matches_display == "Sessions":
+            st.caption('to be implemented')
+        if matches_display == "Teammates":
+            st.caption('to be implemented')
+        # st.table(df_matches_formated.round(2).astype("str")) # hack to round our should-already-be-rounded df
+
+        #AgGrid(MatchesDisplayBasic(df_matches_formated))
 
 
 if __name__ == '__main__':
