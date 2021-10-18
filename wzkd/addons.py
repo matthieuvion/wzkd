@@ -13,7 +13,7 @@ from callofduty.client import Client
 # see notebooks/cod_api_doc.ipnyb for details
 
 async def GetMatches(
-    self, platform: Platform, username: str, title: Title, mode: Mode, **kwargs
+    self, platform, username: str, title: Title, mode: Mode, **kwargs
 ):
 
     limit: int = kwargs.get("limit", 20)
@@ -22,7 +22,7 @@ async def GetMatches(
 
     data: dict = (
         await self.http.GetPlayerMatches(
-            platform.value,
+            platform,
             username,
             title.value,
             mode.value,
@@ -36,7 +36,7 @@ async def GetMatches(
 
 
 async def GetMatchesDetailed(
-    self, platform: Platform, username: str, title: Title, mode: Mode, **kwargs
+    self, platform, username: str, title: Title, mode: Mode, **kwargs
 ):
 
     limit: int = kwargs.get("limit", 20)
@@ -45,7 +45,7 @@ async def GetMatchesDetailed(
 
     return (
         await self.http.GetPlayerMatchesDetailed(
-            platform.value,
+            platform,
             username,
             title.value,
             mode.value,
@@ -57,7 +57,7 @@ async def GetMatchesDetailed(
 
 
 async def GetMatchesSummary(
-    self, platform: Platform, username: str, title: Title, mode: Mode, **kwargs
+    self, platform, username: str, title: Title, mode: Mode, **kwargs
 ):
 
     limit: int = kwargs.get("limit", 20)
@@ -66,7 +66,7 @@ async def GetMatchesSummary(
 
     return (
         await self.http.GetPlayerMatchesDetailed(
-            platform.value,
+            platform,
             username,
             title.value,
             mode.value,
