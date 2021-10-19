@@ -72,16 +72,16 @@ def MatchesToDf(matches):
     # column playerStats is a series of dict, we can expand it easily and append, then drop the original
     df = pd.concat([df.drop(['playerStats'], axis=1), df['playerStats'].apply(pd.Series)], axis=1)
     
-    # colum player is a bit messy
-    # once expanded, it has a column 'loadout' : a series of list of dict (either one or two)
-    # and also brMissionStats that we aren't interested in
+    # colum player has more depth
+    # once expanded, it has a column 'loadout' : a series of list of dict (either one or more, we will keep 1 to max 3)
+    # and also brMissionStats (mostly empty ?) that we aren't interested in
     
     df = pd.concat([df.drop(['player'], axis=1), df['player'].apply(pd.Series)], axis=1)
     df = df.drop(['brMissionStats'], axis = 1)
     df = pd.concat([df.drop(['loadout'], axis=1), df['loadout'].apply(pd.Series)], axis=1)
     for col in range(0,3):
         if col in df.columns:
-            df[col] = df[col].apply(lambda x: [x['primaryWeapon']['name'],x['secondaryWeapon']['name']] if not str(x) == 'nan' else np.nan)
+            df[col] = df[col].apply(lambda x: f"{x['primaryWeapon']['name']} - {x['secondaryWeapon']['name']}" if not str(x) == 'nan' else np.nan)
             col_name = "loadout_" + str(col +1)
             df = df.rename(columns={col: f"loadout_{str(col +1)}"})   
             keep_cols.append(col_name)
@@ -91,7 +91,6 @@ def MatchesToDf(matches):
 #st.cache
 def MatchesStandardize(df):
     
-
     int_cols =  [
         'teamPlacement', 
         'kills', 
@@ -126,7 +125,7 @@ def MatchesStandardize(df):
         'utcEndSeconds':'Ended at',
         'utcStartSeconds':'Started at',
         'timePlayed': 'Playtime',
-        'teamPlacement':'Placement',
+        'teamPlacement':'#',
         'kdRatio':'KD',
         'damageDone':'Damage >',
         'damageTaken':'Damage <',
@@ -136,44 +135,38 @@ def MatchesStandardize(df):
         'duration':'Game duration'
         }
 
-    df = df.fillna(0)
+    # df = df.fillna(0)
     df[int_cols] = df[int_cols].astype(int)
-    df[float_cols] = df[float_cols].astype(float).round(1) # still renders 0.0000 in streamlit but ugly hack exists
-    for col in ts_cols:
-        df[col] = df[col].apply(pd.to_datetime, unit='s')
+    df[float_cols] = df[float_cols].astype(float).round(1) # still renders 0.0000 in streamlit but ugly hacks exists
     
-    #  specials
+    # specials
+    df['utcEndSeconds'] = df['utcEndSeconds'].apply(lambda x: datetime.fromtimestamp(x))
+    df['utcStartSeconds'] = df['utcStartSeconds'].apply(lambda x: datetime.fromtimestamp(x))
+    
     df['duration'] = df['duration'].apply(lambda x: x/1000).apply(lambda x: pd.to_datetime(x, unit='s').strftime('%M')) # API duration is in seconds x1000
     df['timePlayed'] = df['timePlayed'].apply(lambda x: pd.to_datetime(x, unit='s').strftime('%M:%S')) # API timePlayed is in seconds
     df['gulagKills'] = df['gulagKills'].map({1:'W', 0:'L'})
+    for col in ['loadout_1', 'loadout_2', 'loadout_3']:
+            df.fillna({col:'-'}, inplace=True) if col in df.columns else None
     
-    # final naming
     df = df.replace({"mode": mode_labels})
     df = df.rename(columns=columns_labels)
     df.columns = df.columns.str.capitalize()
-    df = df.rename({"Kd":"KD"}, axis=1) 
+    df = df.rename({"Kd":"KD"}, axis=1)
      
-    return df
 #st.cache
 def MatchesPerDay(df):
     """
-    Streamlit/basic AgGrid does not render well multi indexed df
+    Streamlit/basic AgGrid does not render well (aka blank rows etc.) multi indexed df
     So we organize data differently, though more complex ^_^
     
     Returns
     -------
     {
-        str_weekday_1: {
-            "matches":df-of-matches-that-day,
-            "kd":'',
-            "played":'',
-            "kills":'',
-            "deaths":''
-            },
-         str_weekday_2: {
-            ...
-            }
-        }
+        "str_weekday_1":df-of-matches-that-day,
+        "str_weekday_2":df-of-matches-that-day,
+        (...)
+    }
 
     """
     
@@ -183,37 +176,78 @@ def MatchesPerDay(df):
         '% moving',
         'Game duration'
         ]
+    
+    keep_cols = [
+        'End time',
+        'Mode',
+        '#',
+        'KD',
+        'Kills',
+        'Deaths',
+        'Assists',
+        'Damage >',
+        'Damage <',
+        'Gulag'
+    ]
+    
+    loadout_cols = df.columns[df.columns.str.startswith('Loadout')].tolist()
+    
+    # 1. --- initial formating : datetime, concat loadouts cols ---
+    
     df = df.drop(drop_cols, axis = 1)
     df['End time'] = df['Ended at'].dt.time
     
-    # get list of dataframes (matches), grouped per day (+ remove if one is empt --no match was played this particular weekday)
+    def concat_loadouts(df, columns):
+        return pd.Series(map('_'.join, df[columns].values.tolist()),index = df.index)
+    
+    df['Weapons'] = concat_loadouts(df, loadout_cols)
+    keep_cols = [*keep_cols, *['Weapons']]
+    
+    # 2. --- build result {"day1": df-matches-that-day, "day2": df...} ---
+    
     list_df = [g for n, g in df.groupby(pd.Grouper(key='Ended at',freq='D'))]
     list_df = [df for df in list_df if not df.empty]
-    
-    # get the list of days [str, str, ...] by extracting first value of datetime column
     list_days = [df['Ended at'].tolist()[0].strftime('%A') for df in list_df]
     
-    # get kd, n kills, n deaths, n matches for each day
-    list_kills = [df['Kills'].sum() for df in list_df]
-    list_deaths = [df['Deaths'].sum() for df in list_df]
-    list_played = [len(df) for df in list_df]
-    list_kds = [(df['Kills'].sum()/df['Deaths'].sum()).round(2) for df in list_df]
-    list_gulags = [int(((df.Gulag.str.count("W").sum()/df.Gulag.str.count("L").sum()).round(2))*100) for df in list_df]
-    
-
-    for list_ in [list_df, list_days, list_kills, list_deaths, list_played, list_kds, list_gulags]:
+    # make sure we display latest day first, then build dictionary
+    for list_ in [list_days, list_df]:
         list_.reverse()
-
-    # construct final result : {"day1: {"matches":df, "kd":'', "matches":'', "kills":'', "deaths":''}, day2: {...}}
-    result = {}
-    for day, df, played, kd, kills, deaths, gulags in zip(list_days, list_df, list_played, list_kds, list_kills, list_deaths, list_gulags):
-        result[day] = {"matches":df, "played":played, "kd":kd, "kills":kills, "deaths":deaths, "gulags":gulags}    
+    day_matches = dict(zip(list_days, list_df))
     
+    # 3. --- some more (re)formating ---
     
-    # naming & formating
-    # for some reason (me ? ^-^, Grouper ?) couldnt' modify df before building the result, must iterate again
-    for k, v in result.items():
-        result[k]["matches"] = result[k]["matches"].drop(['Ended at'], axis=1)
-        result[k]["matches"] = result[k]["matches"][['End time', 'Mode', 'Placement', 'KD', 'Kills', 'Deaths', 'Assists', 'Damage >', 'Damage <', 'Gulag']]
+    # for some reason (me ? ^-^, Grouper => Series?) couldnt' modify df before building the result, must iterate again 
+    for k, v in day_matches.items():
+        day_matches[k] = day_matches[k][keep_cols]
       
-    return result
+    return day_matches
+
+
+def AggStats(df):
+    """
+    We want to add aggregated stats for each day/df of matches we got from MatchesPerDay()
+    
+    Returns
+    -------
+    {
+    'Kills':total n kills that day,
+    'Deaths': total deaths,
+    'KD': kills/deaths,
+    'Gulags': win %,
+    'Played': count matches
+    }
+    
+    """
+
+    agg_func = {
+        "Mode":"count",
+        "Kills":"sum",
+        "Deaths":"sum"
+    } 
+    dict_ = df.agg(agg_func).to_dict()
+    dict_.update({'KD': (df.Kills.sum() / df.Deaths.sum()).round(2)})
+    dict_.update({'Gulags': int((df.Gulag.str.count("W").sum() / df.Gulag.str.count("L").sum())*100)})
+    dict_['Played'] = dict_.pop('Mode')
+    
+    
+    return dict_
