@@ -2,27 +2,44 @@ import datetime
 from datetime import datetime, timezone
 import pandas as pd
 import numpy as np
-from labels import mode_labels
+from labels import MODES_LABELS
 
 
 def getLastMatchId(matches):
-    """ Extract last (Battle Royale) Match ID from last matches """
+    """ Extract last (Battle Royale) Match ID from list of last matches """
     list_br_match = [match for match in matches if "br_br" in match["mode"]]
     last_match_id = int(list_br_match[0]["matchID"]) if len(list_br_match) > 0 else None
     return last_match_id
 
 
+def getGamertag(matches):
+    """ 
+    A player can be searchable with a given name but having a different gamertag in-game
+    We need that gamertag if we were to analyse the "one match stats" endpoint (as done in match_format.py)
+    from player's perspective
+    """
+    return matches[0]['player']['username']
+
+
 def MatchesToDf(matches):
     """
-    COD API / callofduty.py client --> list of dict : max 20 Matches with Player stats
-    We expand Player and PlayerStats levels, concatenate them
-    ! We drop some cols we dont want to work with
-
+    Convert Matches API result to a DataFrame we we can perform our aggs/displays nicely, later.
+    Expand some entries (i.e player, playerstats) that are deeply nested.
+    Filter out / retains columns.
+    
+    Parameters
+    ----------
+    matches : result from COD API "matches" endpoint ; FYI formated as : 
+        list[
+                dict{ match 1 stats },
+                dict{ match 2 stats },
+                dict{ 20 matches max },
+            ]
+    
     Returns
     -------
-    DataFrame, matches as rows, matches/ one player stats as columns
-    """
-    
+    DataFrame, (max 20) matches as rows, matches' stats as columns/values
+    """    
     
     keep_cols =  [
         'mode',
@@ -48,10 +65,11 @@ def MatchesToDf(matches):
     
     # colum player has more depth
     # once expanded, it has a column 'loadout' : a series of list of dict (either one or more, we will keep 1 to max 3)
-    # and also brMissionStats (mostly empty ?) that we aren't interested in
+    # and also brMissionStats (mostly empty ?, a col only present in BR matches) that we aren't interested in
     
     df = pd.concat([df.drop(['player'], axis=1), df['player'].apply(pd.Series)], axis=1)
-    df = df.drop(['brMissionStats'], axis = 1)
+    if 'brMissionStats' in df.columns:
+        df = df.drop(['brMissionStats'], axis = 1)
     df = pd.concat([df.drop(['loadout'], axis=1), df['loadout'].apply(pd.Series)], axis=1)
     for col in range(0,3):
         if col in df.columns:
@@ -121,7 +139,7 @@ def MatchesStandardize(df):
     for col in ['loadout_1', 'loadout_2', 'loadout_3']:
             df.fillna({col:'-'}, inplace=True) if col in df.columns else None
     
-    df = df.replace({"mode": mode_labels})
+    df = df.replace({"mode": MODES_LABELS})
     df = df.rename(columns=columns_labels)
     df.columns = df.columns.str.capitalize()
     df = df.rename({"Kd":"KD"}, axis=1)
@@ -220,10 +238,14 @@ def AggStats(df):
         "Mode":"count",
         "Kills":"sum",
         "Deaths":"sum"
-    } 
+    }
+    
+    kd = (df.Kills.sum() / df.Deaths.sum()).round(2)
+    gulagWinRatio = int((df.Gulag.str.count("W").sum() *100) / len(df))
+    
     dict_ = df.agg(agg_func).to_dict()
-    dict_.update({'KD': (df.Kills.sum() / df.Deaths.sum()).round(2)})
-    dict_.update({'Gulags': int((df.Gulag.str.count("W").sum() / df.Gulag.str.count("L").sum())*100)})
+    dict_.update({'KD': kd})
+    dict_.update({'Gulags': gulagWinRatio})
     dict_['Played'] = dict_.pop('Mode')
     
     
