@@ -157,7 +157,7 @@ def parse_gulag(gulagKills):
         return "W" if gulagKills == 1 else "L"
 
 
-def get_last_match_Id(matches):
+def get_last_match_id(matches):
     """Extract last (Battle Royale) Match ID from list of last matches"""
     list_br_match = [match for match in matches if "br_br" in match["mode"]]
     last_match_id = int(list_br_match[0]["matchID"]) if len(list_br_match) > 0 else None
