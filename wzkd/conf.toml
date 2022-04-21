@@ -1,0 +1,82 @@
+[APP]
+mode = "offline"
+br_only = true
+
+[PARSING]
+n_loadouts = 3
+mission_types = [
+    'scavenger',
+    'timedrun',
+    'assassination',
+    'masterassassination',
+    'domination'
+]
+
+[FORMATTING]
+int_cols =  [
+    'assists',
+    'bonusXp',
+    'challengeXp',
+    'damageDone',
+    'damageTaken',
+    'deaths',
+    'executions',
+    'gulagKills',
+    'headshots',
+    'kills',
+    'longestStreak',
+    'matchXp',
+    'medalXp',
+    'miscXp',
+    'nearmisses',
+    'rank',
+    'score',
+    'scoreXp',
+    'teamCount',
+    'teamPlacement',
+    'timePlayed',
+    'totalXp',
+    'wallBangs'
+    ]
+
+float_cols = [
+    'kdRatio',
+    'percentTimeMoving',
+    'distanceTraveled'
+    ]
+
+ts_cols = [
+    'utcEndSeconds',
+    'utcStartSeconds',
+    ]
+
+[RENDERING]
+keep_cols.match = []
+keep_cols.matches = []
+
+labels.utcEndSeconds = 'Ended at'
+labels.utcStartSeconds = 'Started at'
+labels.timePlayed = 'Playtime'
+labels.teamPlacement = '#'
+labels.kdRatio = 'KD'
+labels.damageDone = 'Damage >'
+labels.damageTaken = 'Damage <'
+labels.gulagKills = 'Gulag'
+labels.headshots = '% headshots'
+labels.percentTimeMoving = '% moving'
+labels.duration = 'Game duration'
+
+
+
+
+# DOC : APP SETTINGS (GENERAL BEHAVIOR)
+
+# [APP]
+# MODE : "online" or "offline"
+# COD API is either inconsistent / or not very permissive. For debug / trial purposes you can set it to run
+# as "offline"'. Typical API responses for profile, matches history , match detail are stored in /data
+
+# [MAP]
+# BR_ONLY: true or false
+# If set to true, remove matches that are not of type 'battle royale' in our matches history, i.e. Plunder, Clash, Rebirth... 
+# The filter is applied after the call to getMatches is made to the API (cannot do that beforehand)

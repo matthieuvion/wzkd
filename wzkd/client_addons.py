@@ -31,7 +31,7 @@ async def GetMatches(
             startTimestamp,
             endTimestamp,
         )
-    )["data"] # API res was filtered out here in callofduty.py client
+    )["data"] # originally (in callofduty.py client), API result was truncated here
 
     return data
 
@@ -54,7 +54,7 @@ async def GetMatchesDetailed(
             startTimestamp,
             endTimestamp,
         )
-    )["data"]['matches'] # API res was filtered out here in callofduty.py client
+    )["data"]['matches'] # originally (in callofduty.py client), API result was truncated here
 
 
 async def GetMatchesSummary(
@@ -75,7 +75,7 @@ async def GetMatchesSummary(
             startTimestamp,
             endTimestamp,
         )
-    )["data"]['summary'] # API res was filtered out here in callofduty.py client
+    )["data"]['summary'] # originally (in callofduty.py client), API result was truncated here
 
 
 async def GetProfile(
@@ -104,5 +104,5 @@ async def GetMatchStats(
             title.value, platform, mode.value, matchId, language.value
         )
     )["data"]["allPlayers"]
-    # api result, at very least for Warzone {'data':{'all_players:' is the only key},'status': call status}
+    # api result, at very least for Warzone calls  {'data':{'all_players:' is the only key},'status': call status}
 

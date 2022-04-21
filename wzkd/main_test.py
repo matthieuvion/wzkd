@@ -1,5 +1,4 @@
 import asyncio
-
 import callofduty
 from callofduty import Mode, Platform, Title
 
