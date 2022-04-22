@@ -4,23 +4,151 @@ from doctest import DocFileCase
 import pandas as pd
 import numpy as np
 from itertools import product
-from utils import (
-    load_conf,
-    load_labels,
-    extract_loadouts,
-    parse_loadout,
-    parse_gulag,
-    extract_missions,
-    parse_mission,
-)
+from utils import load_conf, load_labels
 
 
 """ 
 Inside
 ------
-Module overall purpose is to flatten COD API matche(s) result to a maximum, in a DataFrame
-Then makes data readable & useable for future display / operations
+Module overall purpose is to flatten COD API matche(s) result to a maximum, into a DataFrame
+Then make data readable & useable for future display / aggregations
 """
+
+
+def extract_loadouts(df, CONF):
+    """
+    Extract player(s) loadout(s) from match(es) df > player col > 'loadout' (or 'loadouts')
+    Flatten (breakdown) them into one or several cols : one for every loadout
+    n of loadouts to extract defined in conf.toml
+
+    Parameters
+    ----------
+    df, match result previously converted as a df, with 'player' col already expanded
+
+    Returns
+    -------
+    Dataframe, with n columns of players loadout(s), that we will append to our main df
+    """
+
+    loadout_col = "loadout" if "loadout" in df.columns.tolist() else "loadouts"
+    # when extracting, df 'player' col is already expanded, with 'loadout' accessible
+    df_loadouts = df[loadout_col].apply(pd.Series)
+
+    # max number of payloads to parse, as defined in conf
+    n_loadouts = CONF.get("API_OUTPUT_FORMAT")["n_loadouts"]
+    n_loadouts = (
+        n_loadouts
+        if n_loadouts <= len(df_loadouts.columns)
+        else len(df_loadouts.columns)
+    )
+
+    # remove the extra loadouts ( > max loadouts to keep)
+    df_loadouts = df_loadouts.iloc[:, 0:n_loadouts]
+
+    # rename final columns : loadout_1, loadout_2 ...
+    col_names = {idx: f"loadout_{idx+1}" for idx, col in enumerate(df_loadouts.columns)}
+    df_loadouts.rename(columns=col_names, inplace=True)
+
+    return df_loadouts
+
+
+def parse_loadout(loadout_value, LABELS):
+    """
+    Parse a loadout entry (dict),  extract weapons names then rename using wzlabels.json
+
+    Parameters
+    ----------
+    loadout : a dict value after we flattened a match(es) result / extracted loadouts entries.
+        e.g.
+        dict{
+                primaryWeapon:{name:s4_pi_mike1911...},
+                perks:[...],
+                other keys,,
+            }
+
+    Returns
+    -------
+    String, parsed primary and secondary weapons names
+    """
+
+    def extract_weapons(loadout_value):
+        return f"{loadout_value.get('primaryWeapon')['name']} {loadout_value.get('secondaryWeapon')['name']}"
+
+    def parse_weapons(weapons, LABELS):
+        list_weapons = weapons.split(" ")
+        for PREFIX in LABELS["weapons"].get("prefixes"):
+            list_weapons = list(
+                map(lambda weapon: weapon.replace(PREFIX, ""), list_weapons)
+            )
+        list_weapons = [
+            weapon.replace(weapon, LABELS["weapons"]["names"].get(weapon, weapon))
+            for weapon in list_weapons
+        ]
+        return " ".join(list_weapons)
+
+    if pd.isnull(loadout_value):
+        return np.nan
+    else:
+        weapons = extract_weapons(loadout_value)
+        return parse_weapons(weapons, LABELS)
+
+
+def extract_missions(df):
+    """
+    Flatten then extract (desired) mission stats from matche(s) df > player col > 'brMissionStats'
+
+    Parameters
+    ----------
+    df, match(es) result previously converted as a df, with 'player'/' col already expanded
+
+    Returns
+    -------
+    Dataframe, with desired missions KPIs as columns, that we will append to our main df
+    """
+
+    main_col = "brMissionStats"
+    sub_col = "missionStatsByType"
+    df_missions = df[main_col].apply(pd.Series)
+
+    return pd.concat(
+        [df_missions.drop([sub_col], axis=1), df_missions[sub_col].apply(pd.Series)],
+        axis=1,
+    )
+
+
+def parse_mission(mission_value):
+    """
+    Parse a mission entry (dict), extracting 'count'
+
+    Parameters
+    ----------
+    mission_value : a dict value after we flattened a match(es) result/'player'/'brMissionStats'
+        e.g.
+        dict{
+                weaponXp:650.0},
+                xp:650,
+                count:1
+            }
+
+    Returns
+    -------
+    int, count of a given mission
+    """
+
+    if pd.isnull(mission_value):
+        return np.nan
+    else:
+        return mission_value["count"]
+
+
+def parse_gulag(gulagKills):
+    """
+    Parse a gulagKills entry with a value either NaN, 1 or 0, to W, L, NaN
+    """
+    if pd.isnull(gulagKills):
+        return np.nan
+    else:
+        return "W" if gulagKills == 1 else "L"
 
 
 def res_to_df(res, CONF):
@@ -116,17 +244,19 @@ def format_df(df, CONF, LABELS):
     # Some int cols like gulagKills or teamPlacement do not exist if the mode =/ Battle Royale
     # Also we're using Int64, to preserve NaN values and not throwing an error when casting ints
     int_cols = [
-        col for col in CONF["FORMATTING"]["int_cols"] if col in df.columns.tolist()
+        col
+        for col in CONF["API_OUTPUT_FORMAT"]["int_cols"]
+        if col in df.columns.tolist()
     ]
     df[int_cols] = df[int_cols].astype("Int64")
 
     # Round float values. Later on will still renders as 0.0000 in streamlit but an ugly hacks exists
-    df[CONF["FORMATTING"]["float_cols"]] = (
-        df[CONF["FORMATTING"]["float_cols"]].astype(float).round(1)
+    df[CONF["API_OUTPUT_FORMAT"]["float_cols"]] = (
+        df[CONF["API_OUTPUT_FORMAT"]["float_cols"]].astype(float).round(1)
     )
 
     # Make timestamps (start/end times of a match) and durations/length readable
-    for ts_col in CONF["FORMATTING"]["ts_cols"]:
+    for ts_col in CONF["API_OUTPUT_FORMAT"]["ts_cols"]:
         df[ts_col] = df[ts_col].apply(lambda x: datetime.fromtimestamp(x))
     df["duration"] = (
         df["duration"]
@@ -152,13 +282,11 @@ def format_df(df, CONF, LABELS):
             )
 
     # Missions types : extract count
-    for mission_col in CONF.get("PARSING")["mission_types"]:
+    for mission_col in CONF.get("API_OUTPUT_FORMAT")["mission_types"]:
         if mission_col in df.columns.tolist():
             df[mission_col] = (
                 df[mission_col]
-                .apply(
-                    lambda x: parse_mission(x, CONF) if not str(x) == "nan" else np.nan
-                )
+                .apply(lambda x: parse_mission(x) if not str(x) == "nan" else np.nan)
                 .astype("Int64")
             )
 
@@ -167,71 +295,3 @@ def format_df(df, CONF, LABELS):
         df = df.replace({"mode": LABELS.get("modes")[mode]})
 
     return df
-
-
-# st.cache
-def matches_per_day(df):
-    """
-    Final layer applied to our list of matches with stats, to render them in our Streamlit App
-    Streamlit/basic AgGrid does not render well (aka w. blank rows etc.) multi indexed df
-    So we structure and display our data differently (a dictionary instead of a df), in a daily manner
-
-    Returns
-    -------
-    Dictionary :
-    {
-        "str_weekday_1":df-of-matches-that-day,
-        "str_weekday_2":df-of-matches-that-day,
-        (...)
-    }
-    """
-
-    drop_cols = ["Started at", "Playtime", "% moving", "Game duration"]
-
-    keep_cols = [
-        "End time",
-        "Mode",
-        "#",
-        "KD",
-        "Kills",
-        "Deaths",
-        "Assists",
-        "Damage >",
-        "Damage <",
-        "Gulag",
-    ]
-
-    loadout_cols = df.columns[df.columns.str.startswith("Loadout")].tolist()
-    df[loadout_cols] = df[loadout_cols].replace(
-        0, "-"
-    )  # else can't concat Loadouts cols
-
-    # 1. --- initial formating : datetime, concat loadouts cols ---
-
-    df = df.drop(drop_cols, axis=1)
-    df["End time"] = df["Ended at"].dt.time
-
-    def concat_loadouts(df, columns):
-        return pd.Series(map(" , ".join, df[columns].values.tolist()), index=df.index)
-
-    df["Weapons"] = concat_loadouts(df, loadout_cols)
-    keep_cols = [*keep_cols, *["Weapons"]]
-
-    # 2. --- build result {"day1": df-matches-that-day, "day2": df...} ---
-
-    list_df = [g for n, g in df.groupby(pd.Grouper(key="Ended at", freq="D"))]
-    list_df = [df for df in list_df if not df.empty]
-    list_days = [df["Ended at"].tolist()[0].strftime("%Y-%m-%d (%A)") for df in list_df]
-
-    # make sure we display latest day first, then build dictionary
-    for list_ in [list_days, list_df]:
-        list_.reverse()
-    day_matches = dict(zip(list_days, list_df))
-
-    # 3. --- some more (re)formating ---
-
-    # for some reason (me ? ^-^, Grouper => Series?) couldnt' modify df before building the result, must iterate again
-    for k, v in day_matches.items():
-        day_matches[k] = day_matches[k][keep_cols]
-
-    return day_matches

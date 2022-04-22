@@ -1,9 +1,28 @@
-[APP]
+[APP_BEHAVIOR]
 mode = "offline"
 br_only = true
 
-[PARSING]
+
+[APP_DISPLAY]
+keep_cols.match = []
+keep_cols.matches = []
+
+labels.utcEndSeconds = 'Ended at'
+labels.utcStartSeconds = 'Started at'
+labels.timePlayed = 'Playtime'
+labels.teamPlacement = '#'
+labels.kdRatio = 'KD'
+labels.damageDone = 'Damage >'
+labels.damageTaken = 'Damage <'
+labels.gulagKills = 'Gulag'
+labels.headshots = '% headshots'
+labels.percentTimeMoving = '% moving'
+labels.duration = 'Game duration'
+
+
+[API_OUTPUT_FORMAT]
 n_loadouts = 3
+
 mission_types = [
     'scavenger',
     'timedrun',
@@ -11,8 +30,6 @@ mission_types = [
     'masterassassination',
     'domination'
 ]
-
-[FORMATTING]
 int_cols =  [
     'assists',
     'bonusXp',
@@ -50,33 +67,14 @@ ts_cols = [
     'utcStartSeconds',
     ]
 
-[RENDERING]
-keep_cols.match = []
-keep_cols.matches = []
 
-labels.utcEndSeconds = 'Ended at'
-labels.utcStartSeconds = 'Started at'
-labels.timePlayed = 'Playtime'
-labels.teamPlacement = '#'
-labels.kdRatio = 'KD'
-labels.damageDone = 'Damage >'
-labels.damageTaken = 'Damage <'
-labels.gulagKills = 'Gulag'
-labels.headshots = '% headshots'
-labels.percentTimeMoving = '% moving'
-labels.duration = 'Game duration'
+# DOCUMENTATION
 
-
-
-
-# DOC : APP SETTINGS (GENERAL BEHAVIOR)
-
-# [APP]
-# MODE : "online" or "offline"
+# [APP_BEHAVIOR]
+# mode : "online" or "offline"
 # COD API is either inconsistent / or not very permissive. For debug / trial purposes you can set it to run
 # as "offline"'. Typical API responses for profile, matches history , match detail are stored in /data
 
-# [MAP]
-# BR_ONLY: true or false
+# br_only : true or false
 # If set to true, remove matches that are not of type 'battle royale' in our matches history, i.e. Plunder, Clash, Rebirth... 
 # The filter is applied after the call to getMatches is made to the API (cannot do that beforehand)

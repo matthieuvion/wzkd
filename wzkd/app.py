@@ -15,8 +15,7 @@ from callofduty.client import Client
 
 import utils
 import api_format
-import profile
-import kpis
+import kpis_match, kpis_matches, kpis_profile
 
 # ------------- Customized methods to callofduty.py client, added at runtime -------------
 
@@ -48,18 +47,21 @@ LABELS = utils.load_labels()
 
 
 # For demo purposes we can run the app from offline "true" API results saved in /data
+@st.cache
 def get_offline_profile():
     with open("data/profile.pkl", "rb") as f:
         profile = pickle.load(f)
     return profile
 
 
+@st.cache
 def get_offline_matches():
     with open("data/matches.pkl", "rb") as f:
         matches = pickle.load(f)
     return matches
 
 
+@st.cache
 def get_offline_match():
     with open("data/match.pkl", "rb") as f:
         match = pickle.load(f)
@@ -67,7 +69,7 @@ def get_offline_match():
 
 
 # COD API calls, using callofduty.py client with our (minor) tweaks
-# All data come from 3 endpoints : user's profile (if public), matches, match details
+# All app data come from 3 endpoints : user's profile (if public), matches, match details
 async def login():
     client = await callofduty.Login(sso=os.environ["SSO"])
     return client
@@ -111,13 +113,13 @@ def render_match(matches):
     """Render Matches History, Day : list of matches that day"""
     br_modes = ["Duos", "Trios", "Quads", "Iron Trials"]
     df_all_matches = api_format.res_to_df(matches, CONF)
-    df_format = api_format.format_df(df_all_matches)
+    df_format = api_format.format_df(df_all_matches, CONF, LABELS)
     # modes = df_format['Mode'].unique().tolist() if not app_cfg.get('MAP').get('BR_ONLY') else br_modes
     # day_matches = api_format.matches_per_day(df_format[df_format['Mode'].isin(modes)])
-    day_matches = kpis.daily_stats(df_format)
+    day_matches = kpis_matches.daily_stats(df_format)
 
     for day in day_matches.keys():
-        day_stats = kpis.daily_stats(day_matches[day])
+        day_stats = kpis_matches.daily_stats(day_matches[day])
         df_matches = day_matches[day]
         st.text(day)
         st.caption(
@@ -129,36 +131,10 @@ def render_match(matches):
         # Optional : render using AgGrid component e.g AgGrid(MatchesDisplayBasic(df_matches))
 
 
-def shrink_df(df, cols_to_concat, str_join, new_col):
-    """For our df to occupy less space in Streamlit : to str + concat given cols into 1"""
-
-    def concat_cols(df, cols_to_concat, str_join):
-        return pd.Series(
-            map(str_join.join, df[cols_to_concat].values.tolist()), index=df.index
-        )
-
-    for col in cols_to_concat:
-        df[col] = df[col].astype(str)
-    df[new_col] = concat_cols(df, cols_to_concat, str_join)
-    df = df.drop(cols_to_concat, axis=1)
-
-    return df
-
-
-def remove_empty(x):
-    """Remove empty strings "-" mainly left after concatenation and fillna operations"""
-    x = x.split(", ")
-    x = list(
-        map(lambda weapon: weapon.replace("-", "") if len(weapon) <= 1 else weapon, x)
-    )
-    x = list(filter(None, x))
-    return ", ".join(x)
-
-
 def render_team(team_kills, gamertag):
     """Render Team KDA concat with Team Weapons, in a plotly table"""
 
-    team_kills = shrink_df(
+    team_kills = utils.shrink_df(
         team_kills,
         cols_to_concat=["Kills", "Deaths", "Assists"],
         str_join=" | ",
@@ -167,13 +143,13 @@ def render_team(team_kills, gamertag):
     cols_to_concat = team_kills.columns[
         team_kills.columns.str.startswith("Loadout")
     ].tolist()
-    team_kills = shrink_df(
+    team_kills = utils.shrink_df(
         team_kills, cols_to_concat, str_join=", ", new_col="Loadouts"
     )
 
     # team_info = pd.concat([team_kills, team_weapons], axis=1, sort=True)
     team_info = team_kills.rename(columns={"Username": "Player"})
-    team_info["Loadouts"] = team_info["Loadouts"].map(lambda x: remove_empty(x))
+    team_info["Loadouts"] = team_info["Loadouts"].map(lambda x: utils.remove_empty(x))
 
     # plot with plotly
     colors = [
@@ -217,7 +193,7 @@ def render_team(team_kills, gamertag):
 def render_players(players_kills):
     """Render Game top Kills players in a plotly table"""
 
-    players_kills = shrink_df(
+    players_kills = utils.shrink_df(
         players_kills,
         cols_to_concat=["Kills", "Deaths", "Assists"],
         str_join=" | ",
@@ -226,12 +202,14 @@ def render_players(players_kills):
     cols_to_concat = players_kills.columns[
         players_kills.columns.str.startswith("Loadout")
     ].tolist()
-    players_kills = shrink_df(
+    players_kills = utils.shrink_df(
         players_kills, cols_to_concat, str_join=", ", new_col="Loadouts"
     )
 
     players_kills = players_kills.rename(columns={"Username": "Player"})
-    players_kills["Loadouts"] = players_kills["Loadouts"].map(lambda x: remove_empty(x))
+    players_kills["Loadouts"] = players_kills["Loadouts"].map(
+        lambda x: utils.remove_empty(x)
+    )
 
     # plot with plotly
     fig = go.Figure(
@@ -373,8 +351,6 @@ async def main():
     st.set_page_config(
         page_title="wzkd", page_icon=None, layout="wide", initial_sidebar_state="auto"
     )
-    st.title("WZKD")
-    st.caption("Warzone COD API demo app")
 
     if "user" not in st.session_state:
         st.session_state["user"] = None
@@ -382,6 +358,10 @@ async def main():
     # ----- Sidebar -----
 
     with st.sidebar:
+        # app title block
+        st.title("WZKD")
+        st.caption("Warzone COD API demo app")
+
         # Search Player block
         st.subheader("Search Player")
         with st.form(key="loginForm"):
@@ -416,12 +396,12 @@ async def main():
         # User Profile block
         st.markdown("**Profile**")
 
-        if CONF.get("APP")["mode"] == "offline":
+        if CONF.get("APP_BEHAVIOR")["mode"] == "offline":
             profile = get_offline_profile()
         else:
             profile = await get_profile(client, selected_platform, username)
 
-        profile_kpis = profile.profile_get_kpis(profile)
+        profile_kpis = kpis_profile.profile_get_kpis(profile)
         lifetime_kd = profile_kpis["br_kd"]
         lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
 
@@ -450,7 +430,7 @@ async def main():
 
         # ----- Central part / Last Match (if a Battle Royale) Scorecard -----
 
-        if CONF.get("APP")["mode"] == "offline":
+        if CONF.get("APP_BEHAVIOR")["mode"] == "offline":
             matches = get_offline_matches()
         else:
             matches = await get_matches(client, selected_platform, username)
@@ -460,14 +440,14 @@ async def main():
 
         if br_id:
 
-            if CONF.get("CLIENT")["MODE"] == "offline":
+            if CONF.get("APP_BEHAVIOR")["mode"] == "offline":
                 match = get_offline_match()
             else:
                 match = await get_match(client, br_id)
 
-            match = api_format.match_to_df(match)
-            match = api_format.api_format(match)
-            match_date, match_mode = kpis.retrieveDate(match), kpis.retrieveMode(match)
+            match = api_format.res_to_df(match, CONF)
+            match = api_format.format_df(match, CONF, LABELS)
+            match_date, match_mode = utils.get_date(match), utils.get_mode(match)
 
             st.markdown("**Last BR Scorecard**")
             # st.caption(f"{match_date} ({match_mode})")
@@ -477,27 +457,27 @@ async def main():
 
                 col31, col32, col33 = st.columns((1, 1, 1))
                 with col31:
-                    placement = kpis.retrievePlacement(match, gamertag)
+                    placement = kpis_match.get_placement(match, gamertag)
                     st.metric(label="PLACEMENT", value=f"{placement}")
 
                 with col32:
-                    tkp = kpis.teamKillsPlacement(match, gamertag)
+                    tkp = kpis_match.teamKillsPlacement(match, gamertag)
                     st.metric(label="TEAM KILLS RANK", value=f"{tkp+1}")
 
                 with col33:
-                    tpk = kpis.teamPercentageKills(match, gamertag)
+                    tpk = kpis_match.teamPercentageKills(match, gamertag)
                     st.metric(label="TEAM % ALL KILLS", value=f"{tpk}%")
 
                 # Last Match : 2nd layer of stats (team info : kills, team weapons)
                 # st.markdown("""---""")
                 col41, col42 = st.columns((1, 1))
                 with col41:
-                    team_kills = kpis.teamKills(match, gamertag)
+                    team_kills = kpis_match.teamKills(match, gamertag)
                     render_team(team_kills, gamertag)
 
                 with col42:
-                    players_quartiles = kpis.playersQuartiles(match)
-                    player_kills = kpis.retrievePlayerKills(match, gamertag)
+                    players_quartiles = kpis_match.playersQuartiles(match)
+                    player_kills = kpis_match.get_player_kills(match, gamertag)
                     render_bullet_chart(
                         lifetime_kd,
                         lifetime_kills_ratio,
@@ -511,7 +491,7 @@ async def main():
             with st.expander("Match details", False):
                 col51, col52 = st.columns((1, 1))
                 with col51:
-                    players_kills = kpis.topPlayers(match)
+                    players_kills = kpis_match.topPlayers(match)
                     render_players(players_kills)
 
                 with col52:

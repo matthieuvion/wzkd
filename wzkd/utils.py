@@ -6,6 +6,8 @@ import numpy as np
 import toml
 import json
 
+# CONF utils
+
 
 def load_labels(file="wz_labels.json"):
     """--> dict, with data needed to parse weapons, games modes etc."""
@@ -21,140 +23,7 @@ def load_conf(file="conf.toml"):
     return CONF
 
 
-def extract_loadouts(df, CONF):
-    """
-    Extract player(s) loadout(s) from match(es) df > player col > 'loadout' (or 'loadouts')
-    Flatten (breakdown) them into one or several cols : one for every loadout
-    n of loadouts to extract defined in conf.toml
-
-    Parameters
-    ----------
-    df, match result previously converted as a df, with 'player' col already expanded
-
-    Returns
-    -------
-    Dataframe, with n columns of players loadout(s), that we will append to our main df
-    """
-
-    loadout_col = "loadout" if "loadout" in df.columns.tolist() else "loadouts"
-    # when extracting, df 'player' col is already expanded, with 'loadout' accessible
-    df_loadouts = df[loadout_col].apply(pd.Series)
-
-    # max number of payloads to parse, as defined in conf
-    n_loadouts = CONF.get("PARSING")["n_loadouts"]
-    n_loadouts = (
-        n_loadouts
-        if n_loadouts <= len(df_loadouts.columns)
-        else len(df_loadouts.columns)
-    )
-
-    # remove the extra loadouts ( > max loadouts to keep)
-    df_loadouts = df_loadouts.iloc[:, 0:n_loadouts]
-
-    # rename final columns : loadout_1, loadout_2 ...
-    col_names = {idx: f"loadout_{idx+1}" for idx, col in enumerate(df_loadouts.columns)}
-    df_loadouts.rename(columns=col_names, inplace=True)
-
-    return df_loadouts
-
-
-def parse_loadout(loadout_value, LABELS):
-    """
-    Parse a loadout entry (dict),  extract weapons names then rename using wzlabels.json
-
-    Parameters
-    ----------
-    loadout : a dict value after we flattened a match(es) result / extracted loadouts entries.
-        e.g.
-        dict{
-                primaryWeapon:{name:s4_pi_mike1911...},
-                perks:[...],
-                other keys,,
-            }
-
-    Returns
-    -------
-    String, parsed primary and secondary weapons names
-    """
-
-    def extract_weapons(loadout_value):
-        return f"{loadout_value.get('primaryWeapon')['name']} {loadout_value.get('secondaryWeapon')['name']}"
-
-    def parse_weapons(weapons, LABELS):
-        list_weapons = weapons.split(" ")
-        for PREFIX in LABELS["weapons"].get("prefixes"):
-            list_weapons = list(
-                map(lambda weapon: weapon.replace(PREFIX, ""), list_weapons)
-            )
-        list_weapons = [
-            weapon.replace(weapon, LABELS["weapons"]["names"].get(weapon, weapon))
-            for weapon in list_weapons
-        ]
-        return " ".join(list_weapons)
-
-    if pd.isnull(loadout_value):
-        return np.nan
-    else:
-        weapons = extract_weapons(loadout_value)
-        return parse_weapons(weapons, LABELS)
-
-
-def extract_missions(df):
-    """
-    Flatten then extract (desired) mission stats from matche(s) df > player col > 'brMissionStats'
-
-    Parameters
-    ----------
-    df, match(es) result previously converted as a df, with 'player'/' col already expanded
-
-    Returns
-    -------
-    Dataframe, with desired missions KPIs as columns, that we will append to our main df
-    """
-
-    main_col = "brMissionStats"
-    sub_col = "missionStatsByType"
-    df_missions = df[main_col].apply(pd.Series)
-
-    return pd.concat(
-        [df_missions.drop([sub_col], axis=1), df_missions[sub_col].apply(pd.Series)],
-        axis=1,
-    )
-
-
-def parse_mission(mission_value, CONF):
-    """
-    Parse a mission entry (dict), extracting 'count'
-
-    Parameters
-    ----------
-    mission_value : a dict value after we flattened a match(es) result/'player'/'brMissionStats'
-        e.g.
-        dict{
-                weaponXp:650.0},
-                xp:650,
-                count:1
-            }
-
-    Returns
-    -------
-    int, count of a given mission
-    """
-
-    if pd.isnull(mission_value):
-        return np.nan
-    else:
-        return mission_value["count"]
-
-
-def parse_gulag(gulagKills):
-    """
-    Parse a gulagKills entry with a value either NaN, 1 or 0, to W, L, NaN
-    """
-    if pd.isnull(gulagKills):
-        return np.nan
-    else:
-        return "W" if gulagKills == 1 else "L"
+# Retrieve ids, names, dates...
 
 
 def get_last_match_id(matches):
@@ -171,6 +40,56 @@ def get_gamer_tag(matches):
     from player's perspective
     """
     return matches[0]["player"]["username"]
+
+
+def get_team(df, gamertag):
+    """--> str, Retrieve team name of given gamertag"""
+    return df[df["Username"] == gamertag]["Team"].tolist()[0]
+
+
+def get_teammates(df, gamertag):
+    """--> list(str), Retrieve list of gamertag + his teammates"""
+    team = get_team(df, gamertag)
+    return df[df["Team"] == team]["Username"].tolist()
+
+
+def get_date(df):
+    """--> str, Retrieve end date (str) of our match"""
+    return df["Ended at"][0].strftime("%Y-%m-%d %H:%M")
+
+
+def get_mode(df):
+    """--> str, retrieve BR type of our match"""
+    return df["Mode"][0]
+
+
+# formatting tools
+
+
+def shrink_df(df, cols_to_concat, str_join, new_col):
+    """For our df to occupy less space in Streamlit : to str + concat given cols into 1"""
+
+    def concat_cols(df, cols_to_concat, str_join):
+        return pd.Series(
+            map(str_join.join, df[cols_to_concat].values.tolist()), index=df.index
+        )
+
+    for col in cols_to_concat:
+        df[col] = df[col].astype(str)
+    df[new_col] = concat_cols(df, cols_to_concat, str_join)
+    df = df.drop(cols_to_concat, axis=1)
+
+    return df
+
+
+def remove_empty(x):
+    """Remove empty strings "-" mainly left after concatenation and fillna operations"""
+    x = x.split(", ")
+    x = list(
+        map(lambda weapon: weapon.replace("-", "") if len(weapon) <= 1 else weapon, x)
+    )
+    x = list(filter(None, x))
+    return ", ".join(x)
 
 
 def DatetimeToTimestamp(datetime):
