@@ -1,35 +1,14 @@
 [APP_BEHAVIOR]
-mode = "offline"
 br_only = true
-
-
-[APP_DISPLAY]
-keep_cols.match = []
-keep_cols.matches = []
-
-labels.utcEndSeconds = 'Ended at'
-labels.utcStartSeconds = 'Started at'
-labels.timePlayed = 'Playtime'
-labels.teamPlacement = '#'
-labels.kdRatio = 'KD'
-labels.damageDone = 'Damage >'
-labels.damageTaken = 'Damage <'
-labels.gulagKills = 'Gulag'
-labels.headshots = '% headshots'
-labels.percentTimeMoving = '% moving'
-labels.duration = 'Game duration'
-
+mode = "online"
+filename.matches = "matches.pkl"
+filename.more_matches = "matches_60.pkl"
+filename.match = "match.pkl"
+filename.profile = "profile.pkl"
 
 [API_OUTPUT_FORMAT]
 n_loadouts = 3
 
-mission_types = [
-    'scavenger',
-    'timedrun',
-    'assassination',
-    'masterassassination',
-    'domination'
-]
 int_cols =  [
     'assists',
     'bonusXp',
@@ -39,6 +18,7 @@ int_cols =  [
     'deaths',
     'executions',
     'gulagKills',
+    'gulagDeaths',
     'headshots',
     'kills',
     'longestStreak',
@@ -64,8 +44,38 @@ float_cols = [
 
 ts_cols = [
     'utcEndSeconds',
-    'utcStartSeconds',
+    'utcStartSeconds'
     ]
+
+[APP_DISPLAY]
+cols.history = [
+    "utcStartSeconds",
+    "utcEndSeconds",
+    "mode",
+    "teamPlacement",
+    "kdRatio",
+    "kills",
+    "deaths",
+    "assists",
+    "gulagStatus",
+    "loadout_1"
+    ]
+
+cols.match = []
+cols.matches = []
+
+labels.utcEndSeconds = 'Ended at'
+labels.utcStartSeconds = 'Started at'
+labels.timePlayed = 'Playtime'
+labels.teamPlacement = '#'
+labels.kdRatio = 'KD'
+labels.damageDone = 'Damage >'
+labels.damageTaken = 'Damage <'
+labels.gulagKills = 'Gulag'
+labels.headshots = '% headshots'
+labels.percentTimeMoving = '% moving'
+labels.duration = 'Game duration'
+
 
 
 # DOCUMENTATION

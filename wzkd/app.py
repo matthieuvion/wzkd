@@ -1,10 +1,13 @@
 import asyncio
 import os
 import pickle
+from re import M
+from webbrowser import get
 from dotenv import load_dotenv
 
 import pandas as pd
 import streamlit as st
+from streamlit_option_menu import option_menu
 import altair as alt
 import plotly.graph_objects as go
 from st_aggrid import AgGrid
@@ -15,14 +18,18 @@ from callofduty.client import Client
 
 import utils
 import api_format
-import kpis_match, kpis_matches, kpis_profile
+import kpis_match, sessions_history, kpis_profile
+
 
 # ------------- Customized methods to callofduty.py client, added at runtime -------------
 
 # Defined in client_addons.py and added at runtime into callofduty.py client (Client.py class)
+# All app data come from 3 endpoints : user's profile (if public), matches, match details
+# For demo purposes we can run the app in offline mode (cf conf.toml, decorators.py/@run_mode), loading local api responses examples
 from client_addons import (
     GetMatches,
     GetMatchesDetailed,
+    getMoreMatchesDetailed,
     GetMatchesSummary,
     GetMatchStats,
     GetProfile,
@@ -40,67 +47,9 @@ Client.GetMatchStats = GetMatchStats
 load_dotenv()
 
 # Load labels and global app behavior settings : run in offline mode, formatting & display options
+platform_convert = {"Bnet": "battle", "Xbox": "xbox", "Psn": "psn"}
 CONF = utils.load_conf()
 LABELS = utils.load_labels()
-
-# -------------------------- Functions to fetch data from COD API --------------------------
-
-
-# For demo purposes we can run the app from offline "true" API results saved in /data
-@st.cache
-def get_offline_profile():
-    with open("data/profile.pkl", "rb") as f:
-        profile = pickle.load(f)
-    return profile
-
-
-@st.cache
-def get_offline_matches():
-    with open("data/matches.pkl", "rb") as f:
-        matches = pickle.load(f)
-    return matches
-
-
-@st.cache
-def get_offline_match():
-    with open("data/match.pkl", "rb") as f:
-        match = pickle.load(f)
-    return match
-
-
-# COD API calls, using callofduty.py client with our (minor) tweaks
-# All app data come from 3 endpoints : user's profile (if public), matches, match details
-async def login():
-    client = await callofduty.Login(sso=os.environ["SSO"])
-    return client
-
-
-platform_convert = {"Bnet": "battle", "Xbox": "xbox", "Psn": "psn"}
-
-
-async def get_profile(client, selected_platform, username):
-    return await client.GetProfile(
-        platform_convert.get(selected_platform),
-        username,
-        Title.ModernWarfare,
-        Mode.Warzone,
-    )
-
-
-async def get_matches(client, selected_platform, username):
-    return await client.GetMatchesDetailed(
-        platform_convert.get(selected_platform),
-        username,
-        Title.ModernWarfare,
-        Mode.Warzone,
-        limit=20,
-    )
-
-
-async def get_match(client, last_match_id):
-    return await client.GetMatchStats(
-        "battle", Title.ModernWarfare, Mode.Warzone, matchId=last_match_id
-    )
 
 
 # ---------------------- Functions to display our Data nicely in Streamlit ----------------------
@@ -109,26 +58,31 @@ async def get_match(client, last_match_id):
 # Also, some hacks/tricks must be applied to better display our dataframes in streamlit
 
 
-def render_match(matches):
-    """Render Matches History, Day : list of matches that day"""
-    br_modes = ["Duos", "Trios", "Quads", "Iron Trials"]
-    df_all_matches = api_format.res_to_df(matches, CONF)
-    df_format = api_format.format_df(df_all_matches, CONF, LABELS)
-    # modes = df_format['Mode'].unique().tolist() if not app_cfg.get('MAP').get('BR_ONLY') else br_modes
-    # day_matches = api_format.matches_per_day(df_format[df_format['Mode'].isin(modes)])
-    day_matches = kpis_matches.daily_stats(df_format)
+# idea, render as a timeline :
+# https://discuss.streamlit.io/t/reusable-timeline-component-with-demo-for-history-of-nlp/9639
+def render_history(history, agg_stats):
+    """
+    Final layer applied to our list of matches with stats, to render them "well" in our app/
 
-    for day in day_matches.keys():
-        day_stats = kpis_matches.daily_stats(day_matches[day])
-        df_matches = day_matches[day]
-        st.text(day)
-        st.caption(
-            f"{day_stats['Played']} matches - {day_stats['KD']} KD ({day_stats['Kills']} kills, {day_stats['Deaths']} deaths) - Gulag {day_stats['Gulags']} % win"
+    Note:
+    ------
+    Streamlit or even AgGrid does not render well dfs with a multi index, aka : blank rows etc.)
+    We structure and display our data differently : one df => dfs grouped by session + print of sessions aggregated stats
+    """
+
+    session_indexes = history.session.unique().tolist()
+    history_grouped = history.groupby("session")
+
+    for idx in session_indexes:
+        dict_ = agg_stats.get(idx)
+        df_session = history_grouped.get_group(idx)
+
+        st.text(dict_["utcEndSeconds"])
+        st.markdown(
+            f"{dict_['played']} matches - {dict_['kdRatio']:.2f} KD ({int(dict_['kills'])} kills, {int(dict_['deaths'])} deaths) - Gulag : {dict_['gulagStatus']:.0%} win"
         )
-        # hacks (int to str) so Streamlit properly renders our (already) datetime 'End time' and already rounded 'KD' cols
-        df_matches[["End time", "KD"]] = df_matches[["End time", "KD"]].astype(str)
-        st.table(df_matches.drop("Weapons", axis=1))
-        # Optional : render using AgGrid component e.g AgGrid(MatchesDisplayBasic(df_matches))
+        # st.table(df_session)
+        ag = AgGrid(df_session, height=200)
 
 
 def render_team(team_kills, gamertag):
@@ -343,15 +297,20 @@ def render_bullet_chart(
 
 # ------------------------------------ Streamlit App Layout -----------------------------------------
 
-# client can run asynchronously, thus the async, await syntax
+# client can run asynchronously, thus the async-await syntax
 async def main():
 
     # ---- Title, user session state ----
 
+    # more config : https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
     st.set_page_config(
-        page_title="wzkd", page_icon=None, layout="wide", initial_sidebar_state="auto"
+        page_title="wzkd",
+        page_icon=None,
+        layout="wide",
+        initial_sidebar_state="auto",
     )
 
+    # For streamlit not to loop, if one username is not entered & searched
     if "user" not in st.session_state:
         st.session_state["user"] = None
 
@@ -373,155 +332,186 @@ async def main():
                 # may want to use session state here for username ?
             submit_button = st.form_submit_button("submit")
 
-            # when user is searched/logged-in we keep trace of him, thru session_state
+            # when user is searched/logged-in we keep trace of him, through session_state
             if submit_button:
                 st.session_state.user = username
 
-        # Navigation menu
-
-        st.sidebar.subheader("Menu")
+        # Navigation menu with option-menu , try to get several pages later
+        # try menu option streamlit component
+        # menu = option_menu(
+        #    " ",
+        #    ["Home", "Settings"],
+        #    icons=["house", "gear"],
+        #    menu_icon="cast",
+        #    default_index=1,
+        # )
+        # menu basic version with st.checkbox
+        # st.sidebar.subheader("Menu")
         # st.checkbox('Home')
         # st.checkbox('Last BR detailed')
         # st.checkbox('Historical data')
         # st.checkbox('About')po
 
-        # maybe add a menu there with several "pages"
-
     # ----- Central part / Profile -----
 
-    # If our user is already searched/logged in :
+    # If our user is already searched (session_state['user'] is None),
+    # then we can go further and call COD API
     if st.session_state.user:
-        client = await login()
+
+        client = await callofduty.Login(sso=os.environ["SSO"])
 
         # User Profile block
         st.markdown("**Profile**")
 
-        if CONF.get("APP_BEHAVIOR")["mode"] == "offline":
-            profile = get_offline_profile()
-        else:
-            profile = await get_profile(client, selected_platform, username)
+        profile = await client.GetProfile(
+            platform_convert[selected_platform],
+            username,
+            Title.ModernWarfare,
+            Mode.Warzone,
+        )
 
-        profile_kpis = kpis_profile.profile_get_kpis(profile)
+        profile_kpis = kpis_profile.get_kpis_profile(profile)
         lifetime_kd = profile_kpis["br_kd"]
         lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
-
         with st.expander(username, True):
-            col21, col22, col23, col24, col25, col26 = st.columns(
-                (0.5, 0.8, 0.6, 0.6, 0.6, 0.6)
-            )
+            col21, col22, col23, col24, col25 = st.columns((0.5, 0.6, 0.6, 0.6, 0.6))
             with col21:
                 st.metric(label="SEASON LVL", value=profile_kpis["level"])
             with col22:
-                st.metric(label="PRESTIGE", value=profile_kpis["prestige"])
-            with col23:
                 st.metric(label="MATCHES", value=profile_kpis["matches_count_all"])
-            with col24:
+            with col23:
                 st.metric(
-                    label="% COMPETITIVE (BR)",
+                    label="% COMPETITIVE (BR matches)",
                     value=f"{profile_kpis['competitive_ratio']}%",
                 )
-            with col25:
+            with col24:
                 st.metric(label="K/D RATIO (BR)", value=lifetime_kd)
-            with col26:
+            with col25:
                 st.metric(label="Kills / Match (BR)", value=lifetime_kills_ratio)
             st.caption(
                 "Matches: lifetime matches all WZ modes, %Competitive : BR matches / life. matches, K/D ratio : BR Kills / Deaths"
             )
+            # ----- Central part / Last Match (if a Battle Royale) Scorecard -----
 
-        # ----- Central part / Last Match (if a Battle Royale) Scorecard -----
+        # matches = await client.GetMatchesDetailed(
+        #    platform_convert[selected_platform],
+        #    username,
+        #    Title.ModernWarfare,
+        #    Mode.Warzone,
+        # )
+        # if CONF.
 
-        if CONF.get("APP_BEHAVIOR")["mode"] == "offline":
-            matches = get_offline_matches()
-        else:
-            matches = await get_matches(client, selected_platform, username)
-
+        # idea for future : save result in session state if doable, so we do not rerun auto except if we press search again
+        matches = await getMoreMatchesDetailed(
+            client,
+            platform_convert[selected_platform],
+            username,
+            Title.ModernWarfare,
+            Mode.Warzone,
+            n_calls=2,
+        )
         gamertag = utils.get_gamer_tag(matches)
-        br_id = utils.get_last_match_id(matches)
-
-        if br_id:
-
-            if CONF.get("APP_BEHAVIOR")["mode"] == "offline":
-                match = get_offline_match()
-            else:
-                match = await get_match(client, br_id)
-
-            match = api_format.res_to_df(match, CONF)
-            match = api_format.format_df(match, CONF, LABELS)
-            match_date, match_mode = utils.get_date(match), utils.get_mode(match)
-
-            st.markdown("**Last BR Scorecard**")
-            # st.caption(f"{match_date} ({match_mode})")
-            with st.expander(f"{match_date} ({match_mode})", True):
-
-                # Last Match : first layer of stats (team main metrics)
-
-                col31, col32, col33 = st.columns((1, 1, 1))
-                with col31:
-                    placement = kpis_match.get_placement(match, gamertag)
-                    st.metric(label="PLACEMENT", value=f"{placement}")
-
-                with col32:
-                    tkp = kpis_match.teamKillsPlacement(match, gamertag)
-                    st.metric(label="TEAM KILLS RANK", value=f"{tkp+1}")
-
-                with col33:
-                    tpk = kpis_match.teamPercentageKills(match, gamertag)
-                    st.metric(label="TEAM % ALL KILLS", value=f"{tpk}%")
-
-                # Last Match : 2nd layer of stats (team info : kills, team weapons)
-                # st.markdown("""---""")
-                col41, col42 = st.columns((1, 1))
-                with col41:
-                    team_kills = kpis_match.teamKills(match, gamertag)
-                    render_team(team_kills, gamertag)
-
-                with col42:
-                    players_quartiles = kpis_match.playersQuartiles(match)
-                    player_kills = kpis_match.get_player_kills(match, gamertag)
-                    render_bullet_chart(
-                        lifetime_kd,
-                        lifetime_kills_ratio,
-                        player_kills,
-                        players_quartiles,
-                    )
-                st.caption(
-                    "Goal/Threshold : lifetime kills or kd | comparisons : game players' median (< 50% players), mean, 3rd quartile (< 75%), max"
-                )
-
-            with st.expander("Match details", False):
-                col51, col52 = st.columns((1, 1))
-                with col51:
-                    players_kills = kpis_match.topPlayers(match)
-                    render_players(players_kills)
-
-                with col52:
-                    base = alt.Chart(match)
-                    hist2 = (
-                        base.mark_bar()
-                        .encode(
-                            x=alt.X("Kills:Q", bin=alt.BinParams(maxbins=15)),
-                            y=alt.Y(
-                                "count()", axis=alt.Axis(format="", title="n Players")
-                            ),
-                            tooltip=["Kills"],
-                            color=alt.value("orange"),
-                        )
-                        .properties(width=250, height=200)
-                    )
-                    red_median_line = base.mark_rule(color="red").encode(
-                        x=alt.X("mean(Kills):Q", title="Kills"), size=alt.value(3)
-                    )
-                    st.altair_chart(hist2 + red_median_line)
+        #        br_id = utils.get_last_match_id(matches)
+        #
+        #        if br_id:
+        #
+        #            #match = await get_match(client, br_id)
+        #            match = await client.GetMatchStats(
+        #               platform_convert[selected_platform],
+        #               username,
+        #               Title.ModernWarfare,
+        #               Mode.Warzone,
+        #                matchId = br_id
+        #               )
+        #
+        #            match = api_format.res_to_df(match, CONF)
+        #            match = api_format.format_df(match, CONF, LABELS)
+        #            match_date, match_mode = utils.get_date(match), utils.get_mode(match)
+        #
+        #            st.markdown("**Last BR Scorecard**")
+        #            # st.caption(f"{match_date} ({match_mode})")
+        #            with st.expander(f"{match_date} ({match_mode})", True):
+        #
+        #                # Last Match : first layer of stats (team main metrics)
+        #
+        #                col31, col32, col33 = st.columns((1, 1, 1))
+        #                with col31:
+        #                    placement = kpis_match.get_placement(match, gamertag)
+        #                    st.metric(label="PLACEMENT", value=f"{placement}")
+        #
+        #                with col32:
+        #                    tkp = kpis_match.teamKillsPlacement(match, gamertag)
+        #                    st.metric(label="TEAM KILLS RANK", value=f"{tkp+1}")
+        #
+        #                with col33:
+        #                    tpk = kpis_match.teamPercentageKills(match, gamertag)
+        #                    st.metric(label="TEAM % ALL KILLS", value=f"{tpk}%")
+        #
+        #                # Last Match : 2nd layer of stats (team info : kills, team weapons)
+        #                # st.markdown("""---""")
+        #                col41, col42 = st.columns((1, 1))
+        #                with col41:
+        #                    team_kills = kpis_match.teamKills(match, gamertag, LABELS)
+        #                    render_team(team_kills, gamertag)
+        #
+        #                with col42:
+        #                    players_quartiles = kpis_match.playersQuartiles(match)
+        #                    player_kills = kpis_match.get_player_kills(match, gamertag)
+        #                    render_bullet_chart(
+        #                        lifetime_kd,
+        #                        lifetime_kills_ratio,
+        #                        player_kills,
+        #                        players_quartiles,
+        #                    )
+        #                st.caption(
+        #                    "Goal/Threshold : lifetime kills or kd | comparisons : game players' median (< 50% players), mean, 3rd quartile (< 75%), max"
+        #                )
+        #
+        #            with st.expander("Match details", False):
+        #                col51, col52 = st.columns((1, 1))
+        #                with col51:
+        #                    players_kills = kpis_match.topPlayers(match, LABELS)
+        #                    render_players(players_kills)
+        #
+        #                with col52:
+        #                    base = alt.Chart(match)
+        #                    hist2 = (
+        #                        base.mark_bar()
+        #                        .encode(
+        #                            x=alt.X("Kills:Q", bin=alt.BinParams(maxbins=15)),
+        #                            y=alt.Y(
+        #                                "count()", axis=alt.Axis(format="", title="n Players")
+        #                            ),
+        #                            tooltip=["Kills"],
+        #                            color=alt.value("orange"),
+        #                        )
+        #                        .properties(width=250, height=200)
+        #                    )
+        #                    red_median_line = base.mark_rule(color="red").encode(
+        #                        x=alt.X("mean(Kills):Q", title="Kills"), size=alt.value(3)
+        #                    )
+        #                    st.altair_chart(hist2 + red_median_line)
 
         # ----- Central part / Matches (Battle Royale mode only by default) History -----
 
-        st.markdown("**Battle Royale History**")
+        st.markdown("**Sessions History (md bold)**")
         # initially we wanted to filter BR / non BR matches, but we now focus on BR matches only. Consume less calls ;)
         # st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
         # mode_button = st.radio("", ("All modes","Battle Royale"))
-        render_match(matches)
+
+        matches = api_format.res_to_df(matches, CONF)
+        matches = api_format.format_df(matches, CONF, LABELS)
+        matches = api_format.augment_df(matches, LABELS)
+        history = sessions_history.to_history(matches, CONF, LABELS)
+        agg_stats = sessions_history.stats_per_session(history)
+        # maybe test later : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
+        # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
+        render_history(history, agg_stats)
+        # st.dataframe(history)
+        # render_match(matches)
 
 
 if __name__ == "__main__":
+    CONF = utils.load_conf()
     loop = asyncio.new_event_loop()
     loop.run_until_complete(main())

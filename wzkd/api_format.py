@@ -141,16 +141,6 @@ def parse_mission(mission_value):
         return mission_value["count"]
 
 
-def parse_gulag(gulagKills):
-    """
-    Parse a gulagKills entry with a value either NaN, 1 or 0, to W, L, NaN
-    """
-    if pd.isnull(gulagKills):
-        return np.nan
-    else:
-        return "W" if gulagKills == 1 else "L"
-
-
 def res_to_df(res, CONF):
     """
     Convert Match or Matches API result to a DataFrame we can perform our aggregations nicely, later.
@@ -226,8 +216,6 @@ def format_df(df, CONF, LABELS):
     Among others :
     - convert timestamps and durations for human readability
     - parse weapons and game modes names, using wz_labels.json
-    - first layer of simplification to our numerical values (int as int, round floats values...)
-    - convert gulagKills to W or L
 
     Parameters
     ----------
@@ -241,20 +229,6 @@ def format_df(df, CONF, LABELS):
     Matches (formatted) : every match of a list of matches as rows, a given player stats for every match as columns/values
     """
 
-    # Some int cols like gulagKills or teamPlacement do not exist if the mode =/ Battle Royale
-    # Also we're using Int64, to preserve NaN values and not throwing an error when casting ints
-    int_cols = [
-        col
-        for col in CONF["API_OUTPUT_FORMAT"]["int_cols"]
-        if col in df.columns.tolist()
-    ]
-    df[int_cols] = df[int_cols].astype("Int64")
-
-    # Round float values. Later on will still renders as 0.0000 in streamlit but an ugly hacks exists
-    df[CONF["API_OUTPUT_FORMAT"]["float_cols"]] = (
-        df[CONF["API_OUTPUT_FORMAT"]["float_cols"]].astype(float).round(1)
-    )
-
     # Make timestamps (start/end times of a match) and durations/length readable
     for ts_col in CONF["API_OUTPUT_FORMAT"]["ts_cols"]:
         df[ts_col] = df[ts_col].apply(lambda x: datetime.fromtimestamp(x))
@@ -267,12 +241,6 @@ def format_df(df, CONF, LABELS):
         lambda x: pd.to_datetime(x, unit="s").strftime("%M:%S")
     )  # API timePlayed is in seconds
 
-    # 'gulagKills' : convert to W(in) or L(osse)
-    if "gulagKills" in df.columns.tolist():
-        df["gulagKills"] = df["gulagKills"].apply(
-            lambda x: parse_gulag(x) if not str(x) == "nan" else np.nan
-        )
-
     # Loadouts/weapons : extract then parse weapons from loadout(s) cols
     loadout_cols = [col for col in df.columns if col.startswith("loadout_")]
     if loadout_cols:
@@ -282,7 +250,7 @@ def format_df(df, CONF, LABELS):
             )
 
     # Missions types : extract count
-    for mission_col in CONF.get("API_OUTPUT_FORMAT")["mission_types"]:
+    for mission_col in LABELS.get("missions")["types"]:
         if mission_col in df.columns.tolist():
             df[mission_col] = (
                 df[mission_col]
@@ -293,5 +261,53 @@ def format_df(df, CONF, LABELS):
     # parse game modes (either battle royale : duos..., or 'multiplayer : plunder, rebirth island...)
     for mode in list(LABELS.get("modes").keys()):
         df = df.replace({"mode": LABELS.get("modes")[mode]})
+
+    return df
+
+
+def add_gulag_status(df, LABELS):
+    """
+    Add a new column 'gulagStatus', giving 'gulagKills' & 'gulagDeaths' entries
+
+    Note:
+    -----
+    Re. Gulag,  API has some discrepancies ; at least to me ^_^
+    But 99% of time, our returned gulagStatus will reflect what happened in-game
+    """
+
+    # Non BR modes should always return NaN (or nothing) for GulagDeaths and GulagKills
+    # However there are inconsistencies : some non BR mode (e.g Caldera Clash) still returns 0.
+    if "gulagKills" in df.columns.tolist():
+        df.loc[
+            df["mode"].isin(list(LABELS.get("modes")["multiplayer"].values())),
+            ["gulagKills", "gulagDeaths"],
+        ] = np.nan
+
+        filters = [
+            # Modes without a gulag (e.g Plunder)
+            (df.gulagKills.isnull()),
+            # sometimes API returns both 1 kill and 1 death...maybe we still die after we got the kill ?
+            (df.gulagKills == 1) & (df.gulagDeaths == 1),
+            # Flag victory
+            (df.gulagKills == 0) & (df.gulagDeaths == 0),
+            # We killed the poor guy :
+            (df.gulagKills == 1) & (df.gulagDeaths == 0),
+            # We got killed.
+            # Not sure why deaths can be > 1 (even in non multi gulag modes)
+            # whereas kills seems to be always 1 or 0. Maybe team count
+            (df.gulagKills == 0) & (df.gulagDeaths >= 1),
+        ]
+        values = [0, "W", "W", "W", "L"]
+
+        df["gulagStatus"] = np.select(filters, values, default=np.nan)
+        # Cant cast np.nan witk np.select so we used "0" and convert it back to NaN
+        df["gulagStatus"] = df["gulagStatus"].replace("0", np.nan)
+
+    return df
+
+
+def augment_df(df, LABELS):
+    """Pipe the functions above to transform/add new KPIs"""
+    df = df.pipe(add_gulag_status, LABELS)
 
     return df
