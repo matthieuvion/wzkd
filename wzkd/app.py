@@ -1,4 +1,5 @@
 import asyncio
+from calendar import c
 import os
 import pickle
 from re import M
@@ -10,7 +11,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 import altair as alt
 import plotly.graph_objects as go
-from st_aggrid import AgGrid
+from st_aggrid import AgGrid, GridOptionsBuilder
 
 import callofduty
 from callofduty import Mode, Title
@@ -60,29 +61,67 @@ LABELS = utils.load_labels()
 
 # idea, render as a timeline :
 # https://discuss.streamlit.io/t/reusable-timeline-component-with-demo-for-history-of-nlp/9639
-def render_history(history, agg_stats):
+def render_session_table(df_session, CONF):
     """
-    Final layer applied to our list of matches with stats, to render them "well" in our app/
-
-    Note:
-    ------
+    Final layer applied to our list of matches with stats, to render them "well" in our app
     Streamlit or even AgGrid does not render well dfs with a multi index, aka : blank rows etc.)
     We structure and display our data differently : one df => dfs grouped by session + print of sessions aggregated stats
+    Maybe later some cell highlights cf. https://discuss.streamlit.io/t/ag-grid-component-with-input-support/8108/184
     """
 
-    session_indexes = history.session.unique().tolist()
-    history_grouped = history.groupby("session")
+    # tighter our data(frame)
+    df_session["K D A"] = utils.concat_cols(
+        df_session, to_concat=["kills", "deaths", "assists"], sep="."
+    )
 
-    for idx in session_indexes:
-        dict_ = agg_stats.get(idx)
-        df_session = history_grouped.get_group(idx)
+    # customize table layout (streamlit ag grid component)
+    df_session = df_session.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
+    visible_cols = [
+        "Ended at",
+        "mode",
+        "#",
+        "KD",
+        "K D A",
+        "Gulag",
+    ]
+    gb = GridOptionsBuilder.from_dataframe(df_session[visible_cols])
+    gb.configure_column(
+        "KD",
+        type=["numericColumn", "numberColumnFilter", "customNumericFormat"],
+        precision=2,
+    )
+    gb.configure_column(
+        "Ended at", type=["customDateTimeFormat"], custom_format_string="HH:mm"
+    )
+    height = len(df_session) * 30 + 40
+    table = AgGrid(
+        df_session,
+        gridOptions=gb.build(),
+        height=height,  # hard coded height, works well for default aggrid theme
+        width="100%",
+        fit_columns_on_grid_load=False,
+    )
 
-        st.text(dict_["utcEndSeconds"])
-        st.markdown(
-            f"{dict_['played']} matches - {dict_['kdRatio']:.2f} KD ({int(dict_['kills'])} kills, {int(dict_['deaths'])} deaths) - Gulag : {dict_['gulagStatus']:.0%} win"
-        )
-        # st.table(df_session)
-        ag = AgGrid(df_session, height=200)
+
+# gb.configure_column("date_tz_aware", type=["dateColumnFilter","customDateTimeFormat"], custom_format_string='yyyy-MM-dd HH:mm zzz', pivot=True)
+
+
+def render_session_stats(dict_):
+    # NewLine can't be (or couldn't find a working hack), must do multiple prints
+
+    st.caption(
+        f"<div style='text-align: right;'>{dict_['utcEndSeconds'].strftime('%m.%d.%y')} </div>",
+        unsafe_allow_html=True,
+    )
+
+    st.caption(
+        f"<div style='text-align: right;'>{dict_['played']} matches : {dict_['kdRatio']:.2f} k/d </div>",
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        f"<div style='text-align: right;'>{round(dict_['kills']/dict_['played'], 2)} k. avg | {dict_['gulagStatus']:.0%} g. win </div>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_team(team_kills, gamertag):
@@ -494,24 +533,38 @@ async def main():
 
         # ----- Central part / Matches (Battle Royale mode only by default) History -----
 
-        st.markdown("**Sessions History (md bold)**")
+        st.markdown("**Sessions History**")
         # initially we wanted to filter BR / non BR matches, but we now focus on BR matches only. Consume less calls ;)
         # st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
         # mode_button = st.radio("", ("All modes","Battle Royale"))
+        # maybe test later : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
+        # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
 
         matches = api_format.res_to_df(matches, CONF)
         matches = api_format.format_df(matches, CONF, LABELS)
         matches = api_format.augment_df(matches, LABELS)
+
         history = sessions_history.to_history(matches, CONF, LABELS)
-        agg_stats = sessions_history.stats_per_session(history)
-        # maybe test later : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
-        # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
-        render_history(history, agg_stats)
-        # st.dataframe(history)
-        # render_match(matches)
+        sessions_stats = sessions_history.stats_per_session(history)
+
+        # render each session (a list of matches) and their stats in a stacked-two-columns layout
+        sessions_indexes = history.session.unique().tolist()
+        history_grouped = history.groupby("session")
+        for idx in sessions_indexes:
+            dict_ = sessions_stats.get(idx)
+            df_session = history_grouped.get_group(idx)
+            col1, col2 = st.columns((0.2, 0.8))
+            with col1:
+                render_session_stats(dict_)
+            with col2:
+                render_session_table(df_session, CONF)
+
+            # st.markdown("---")
 
 
 if __name__ == "__main__":
     CONF = utils.load_conf()
-    loop = asyncio.new_event_loop()
-    loop.run_until_complete(main())
+    LABELS = utils.load_labels()
+    # loop = asyncio.new_event_loop()
+    # loop.run_until_complete(main())
+    asyncio.run(main())
