@@ -21,7 +21,8 @@
          "br_kingslayer_kingsltrios": "King Slyr x3",
          "br_rumble_clash_caldera": "Clash",
          "br_payload_playlist_wz325/rbrthpayload": "Rbth Payload",
-         "br_dmz_playlist_wz325/rbrthbmo_quads": "Rbth Pldr x4"
+         "br_dmz_playlist_wz325/rbrthbmo_quads": "Rbth Pldr x4",
+         "br_mendota_playlist_wz330/op_mon": "Op Monarch"
       }
    },
    "weapons": {
@@ -88,6 +89,7 @@
          "lm_t9fastfire": "MG82",
          "lm_t9light": "RPD",
          "lm_t9season6": "ground lmg?",
+         "lm_pkilo": "PKM",
          "me_knife": "knife",
          "me_rindigo": "Shield(vg)",
          "me_riotshield": "Shield",
@@ -113,6 +115,7 @@
          "pi_ttango33": "RATT",
          "pi_wecho": "Top break",
          "sh_aalpha12": "JAK-12",
+         "sh_oscar12": "Origin",
          "sh_becho": "Einhorn",
          "sh_bromeo5": "Gracey",
          "sh_dpapa12": "R9-0",
@@ -138,11 +141,11 @@
          "sm_t9spray": "ppsh",
          "sm_t9standard": "MP5 cw",
          "sm_thotel": "m1928",
-         "sm_tyankee100:": "Type100",
+         "sm_tyankee100": "Type100",
          "sm_uzulu": "UZI",
          "sm_wecho43": "_wecho43",
          "sn_alpha50": "AX-50",
-         "sn_cannon": "ZRG",
+         "sn_t9cannon": "ZRG",
          "sn_hdromeo": "HDR",
          "sn_kilo98": "Kar98",
          "sn_romeo700": "SP-R",
@@ -150,5 +153,14 @@
          "sn_t9powersemi": "M82",
          "sn_t9season6": "ground sniper"
       }
+   },
+   "missions": {
+      "types": [
+         "scavenger",
+         "timedrun",
+         "assassination",
+         "masterassassination",
+         "domination"
+      ]
    }
 }
