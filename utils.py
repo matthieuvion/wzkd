@@ -33,6 +33,20 @@ def get_last_match_id(matches):
     return last_match_id
 
 
+def get_last_session_br_ids(history, LABELS):
+    """Extract battle royale matches IDs from latest session with br matches"""
+    br_modes = [value for value in LABELS.get("modes").get("battle_royale").values()]
+    session_idx_min = history.query("mode in @br_modes").session.min()
+
+    br_ids = (
+        history.query("mode in @br_modes")
+        .groupby("session")
+        .get_group(session_idx_min)
+        .matchID.tolist()
+    )
+    return [int(br_id) for br_id in br_ids]
+
+
 def get_gamer_tag(matches):
     """
     A player can be searchable with a given name but having a different gamertag in-game
@@ -44,42 +58,34 @@ def get_gamer_tag(matches):
 
 def get_team(df, gamertag):
     """--> str, Retrieve team name of given gamertag"""
-    return df[df["Username"] == gamertag]["Team"].tolist()[0]
+    return df[df["username"] == gamertag]["team"].tolist()[0]
 
 
 def get_teammates(df, gamertag):
     """--> list(str), Retrieve list of gamertag + his teammates"""
     team = get_team(df, gamertag)
-    return df[df["Team"] == team]["Username"].tolist()
+    return df[df["team"] == team]["username"].tolist()
 
 
 def get_date(df):
     """--> str, Retrieve end date (str) of our match"""
-    return df["Ended at"][0].strftime("%Y-%m-%d %H:%M")
+    return df["utcEndSeconds"][0].strftime("%Y-%m-%d %H:%M")
 
 
 def get_mode(df):
     """--> str, retrieve BR type of our match"""
-    return df["Mode"][0]
+    return df["mode"][0]
 
 
 # formatting tools
 
 
-def shrink_df(df, cols_to_concat, str_join, new_col):
-    """For our df to occupy less space in Streamlit : to str + concat given cols into 1"""
-
-    def concat_cols(df, cols_to_concat, str_join):
-        return pd.Series(
-            map(str_join.join, df[cols_to_concat].values.tolist()), index=df.index
-        )
-
-    for col in cols_to_concat:
-        df[col] = df[col].astype(str)
-    df[new_col] = concat_cols(df, cols_to_concat, str_join)
-    df = df.drop(cols_to_concat, axis=1)
-
-    return df
+def concat_cols(df, to_concat, sep):
+    check = to_concat[0]
+    if df[check].dtypes == "float64":
+        return df[to_concat].astype(int).astype(str).T.agg(sep.join)
+    else:
+        return df[to_concat].astype(str).T.agg(sep.join)
 
 
 def remove_empty(x):

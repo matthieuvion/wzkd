@@ -22,11 +22,12 @@ The addons aim at:
 - Change the way data was truncated after being sent back by COD API
 - Add some backoff / retry to handle (some of) API availability/rates limitations
 - Add a new method that loop over matches to go deeper into Matches history
+- @run_mode decorator allow the app to run in offline mode, using "fake" api result
 """
 
 
 @run_mode
-@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=10, max_tries=5)
+@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=45, max_tries=8)
 async def GetProfile(self, platform, username: str, title: Title, mode: Mode, **kwargs):
     """
     Get Player's profile stats
@@ -37,19 +38,19 @@ async def GetProfile(self, platform, username: str, title: Title, mode: Mode, **
 
 
 @run_mode
-@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=10, max_tries=5)
+@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=45, max_tries=8)
 async def GetMatchesDetailed(
     self, platform, username: str, title: Title, mode: Mode, **kwargs
 ):
     """
     Returns matches history, with username's stats for every match
     Modifications compared to callofduty.py > client.GetPlayerMatches :
-     - removed if platform == 'Activision', no longer supported
-     - filtered out summary data from API's result: ['data'] becomes ['data']['matches']
+     - removed if platform == 'Activision', no longer supported by API
+     - filtered out summary data from API's matches res: ['data'] becomes ['data']['matches']
      - default number of matches returned is now 20 (max allowed by the API) instead of 10
      - added @backoff decorator to handle (some of) API rate/availability limits
     """
-    limit: int = kwargs.get("limit", 20)
+    limit: int = kwargs.get("limit", 10)
     startTimestamp: int = kwargs.get("startTimestamp", 0)
     endTimestamp: int = kwargs.get("endTimestamp", 0)
 
@@ -71,8 +72,8 @@ async def GetMatchesDetailed(
 @run_mode
 async def getMoreMatchesDetailed(client, platform, username, title, mode, **kwargs):
     """
-    A loop to go deeper into (detailed) matches history,
-    using endTimestamp argument defined in GetMatchesDetailed()
+    Loop GetMatchesDetailed() to go deeper into matches history,
+    using endTimestamp argument in GetMatchesDetailed()
     """
 
     n_calls = kwargs.get("n_calls", 2)

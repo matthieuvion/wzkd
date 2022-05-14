@@ -1,7 +1,7 @@
 [APP_BEHAVIOR]
-br_only = true
-mode = "online"
-filename.matches = "matches.pkl"
+br_only = false
+mode = "offline"
+filename.matches = "matches_20.pkl"
 filename.more_matches = "matches_60.pkl"
 filename.match = "match.pkl"
 filename.profile = "profile.pkl"
@@ -51,6 +51,7 @@ ts_cols = [
 cols.history = [
     "utcStartSeconds",
     "utcEndSeconds",
+    "matchID",
     "mode",
     "teamPlacement",
     "kdRatio",
@@ -75,6 +76,7 @@ labels.gulagKills = 'Gulag'
 labels.headshots = '% headshots'
 labels.percentTimeMoving = '% moving'
 labels.duration = 'Game duration'
+labels.gulagStatus = 'Gulag'
 
 
 

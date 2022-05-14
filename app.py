@@ -5,6 +5,7 @@ import pickle
 from re import M
 from webbrowser import get
 from dotenv import load_dotenv
+import time
 
 import pandas as pd
 import streamlit as st
@@ -12,6 +13,7 @@ from streamlit_option_menu import option_menu
 import altair as alt
 import plotly.graph_objects as go
 from st_aggrid import AgGrid, GridOptionsBuilder
+from stqdm import stqdm
 
 import callofduty
 from callofduty import Mode, Title
@@ -78,12 +80,14 @@ def render_session_table(df_session, CONF):
     df_session = df_session.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
     visible_cols = [
         "Ended at",
+        "matchID",
         "mode",
         "#",
         "KD",
         "K D A",
         "Gulag",
     ]
+
     gb = GridOptionsBuilder.from_dataframe(df_session[visible_cols])
     gb.configure_column(
         "KD",
@@ -95,10 +99,9 @@ def render_session_table(df_session, CONF):
     )
     height = len(df_session) * 30 + 40
     table = AgGrid(
-        df_session,
+        df_session[visible_cols],
         gridOptions=gb.build(),
         height=height,  # hard coded height, works well for default aggrid theme
-        width="100%",
         fit_columns_on_grid_load=False,
     )
 
@@ -345,7 +348,7 @@ async def main():
     st.set_page_config(
         page_title="wzkd",
         page_icon=None,
-        layout="wide",
+        layout="centered",
         initial_sidebar_state="auto",
     )
 
@@ -430,15 +433,44 @@ async def main():
             st.caption(
                 "Matches: lifetime matches all WZ modes, %Competitive : BR matches / life. matches, K/D ratio : BR Kills / Deaths"
             )
-            # ----- Central part / Last Match (if a Battle Royale) Scorecard -----
 
-        # matches = await client.GetMatchesDetailed(
-        #    platform_convert[selected_platform],
-        #    username,
-        #    Title.ModernWarfare,
-        #    Mode.Warzone,
-        # )
-        # if CONF.
+        # ----- Central part / last Session Stats (if  Battle Royale matches in our Sessions history) Scorecard -----
+        # A confirmer confusé entre empty() ou container... (multiple elements, so pêtre meiilleur en fait)
+        # placeholder_last_session = st.empty()
+
+        container_last_session = st.container()
+
+        async def retrieve_last_session_matches(last_session_br_ids):
+            last_session_data = []
+            for br_id in stqdm(last_session_br_ids, desc="Retrieving matches..."):
+                time.sleep(0.5)
+                players_stats = await client.GetMatchStats(
+                    platform_convert[selected_platform],
+                    Title.ModernWarfare,
+                    Mode.Warzone,
+                    matchId=br_id,
+                )
+            # reshape-format-augment API results
+            players_stats = api_format.res_to_df(players_stats, CONF)
+            players_stats = api_format.format_df(players_stats, CONF, LABELS)
+            players_stats = api_format.augment_df(players_stats, LABELS)
+            last_session_data.append(players_stats)
+
+            return pd.concat(last_session_data)
+
+        with container_last_session:
+            st.markdown("**Last Battle Royale Session**")
+
+            # st.write("placeholder last session")
+
+        # ----- Central part Sessions History (n sessions of n matches,  default= Battle Royale only ----
+
+        st.markdown("**Sessions History**")
+        # initially we wanted to filter BR / non BR matches, but we now focus on BR matches only. No app rerun = less calls ;)
+        # st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
+        # mode_button = st.radio("", ("All modes","Battle Royale"))
+        # maybe test later : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
+        # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
 
         # idea for future : save result in session state if doable, so we do not rerun auto except if we press search again
         matches = await getMoreMatchesDetailed(
@@ -449,96 +481,6 @@ async def main():
             Mode.Warzone,
             n_calls=2,
         )
-        gamertag = utils.get_gamer_tag(matches)
-        #        br_id = utils.get_last_match_id(matches)
-        #
-        #        if br_id:
-        #
-        #            #match = await get_match(client, br_id)
-        #            match = await client.GetMatchStats(
-        #               platform_convert[selected_platform],
-        #               username,
-        #               Title.ModernWarfare,
-        #               Mode.Warzone,
-        #                matchId = br_id
-        #               )
-        #
-        #            match = api_format.res_to_df(match, CONF)
-        #            match = api_format.format_df(match, CONF, LABELS)
-        #            match_date, match_mode = utils.get_date(match), utils.get_mode(match)
-        #
-        #            st.markdown("**Last BR Scorecard**")
-        #            # st.caption(f"{match_date} ({match_mode})")
-        #            with st.expander(f"{match_date} ({match_mode})", True):
-        #
-        #                # Last Match : first layer of stats (team main metrics)
-        #
-        #                col31, col32, col33 = st.columns((1, 1, 1))
-        #                with col31:
-        #                    placement = kpis_match.get_placement(match, gamertag)
-        #                    st.metric(label="PLACEMENT", value=f"{placement}")
-        #
-        #                with col32:
-        #                    tkp = kpis_match.teamKillsPlacement(match, gamertag)
-        #                    st.metric(label="TEAM KILLS RANK", value=f"{tkp+1}")
-        #
-        #                with col33:
-        #                    tpk = kpis_match.teamPercentageKills(match, gamertag)
-        #                    st.metric(label="TEAM % ALL KILLS", value=f"{tpk}%")
-        #
-        #                # Last Match : 2nd layer of stats (team info : kills, team weapons)
-        #                # st.markdown("""---""")
-        #                col41, col42 = st.columns((1, 1))
-        #                with col41:
-        #                    team_kills = kpis_match.teamKills(match, gamertag, LABELS)
-        #                    render_team(team_kills, gamertag)
-        #
-        #                with col42:
-        #                    players_quartiles = kpis_match.playersQuartiles(match)
-        #                    player_kills = kpis_match.get_player_kills(match, gamertag)
-        #                    render_bullet_chart(
-        #                        lifetime_kd,
-        #                        lifetime_kills_ratio,
-        #                        player_kills,
-        #                        players_quartiles,
-        #                    )
-        #                st.caption(
-        #                    "Goal/Threshold : lifetime kills or kd | comparisons : game players' median (< 50% players), mean, 3rd quartile (< 75%), max"
-        #                )
-        #
-        #            with st.expander("Match details", False):
-        #                col51, col52 = st.columns((1, 1))
-        #                with col51:
-        #                    players_kills = kpis_match.topPlayers(match, LABELS)
-        #                    render_players(players_kills)
-        #
-        #                with col52:
-        #                    base = alt.Chart(match)
-        #                    hist2 = (
-        #                        base.mark_bar()
-        #                        .encode(
-        #                            x=alt.X("Kills:Q", bin=alt.BinParams(maxbins=15)),
-        #                            y=alt.Y(
-        #                                "count()", axis=alt.Axis(format="", title="n Players")
-        #                            ),
-        #                            tooltip=["Kills"],
-        #                            color=alt.value("orange"),
-        #                        )
-        #                        .properties(width=250, height=200)
-        #                    )
-        #                    red_median_line = base.mark_rule(color="red").encode(
-        #                        x=alt.X("mean(Kills):Q", title="Kills"), size=alt.value(3)
-        #                    )
-        #                    st.altair_chart(hist2 + red_median_line)
-
-        # ----- Central part / Matches (Battle Royale mode only by default) History -----
-
-        st.markdown("**Sessions History**")
-        # initially we wanted to filter BR / non BR matches, but we now focus on BR matches only. Consume less calls ;)
-        # st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
-        # mode_button = st.radio("", ("All modes","Battle Royale"))
-        # maybe test later : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
-        # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
 
         matches = api_format.res_to_df(matches, CONF)
         matches = api_format.format_df(matches, CONF, LABELS)
@@ -546,8 +488,9 @@ async def main():
 
         history = sessions_history.to_history(matches, CONF, LABELS)
         sessions_stats = sessions_history.stats_per_session(history)
+        last_session_br_ids = utils.get_last_session_br_ids(history, LABELS)
 
-        # render each session (a list of matches) and their stats in a stacked-two-columns layout
+        # render each session (a list of matches within a timespan) and their stats in a stacked-two-columns layout
         sessions_indexes = history.session.unique().tolist()
         history_grouped = history.groupby("session")
         for idx in sessions_indexes:
@@ -560,6 +503,14 @@ async def main():
                 render_session_table(df_session, CONF)
 
             # st.markdown("---")
+
+        # ask for our latest Battle Royale matches session
+        # and inject them in the container placed above
+        with container_last_session:
+            last_session_data = await retrieve_last_session_matches(last_session_br_ids)
+            st.write(last_session_data.head(2))
+            # data = await retrieve_last_session_matches(last_session_br_ids)
+            # st.write(data)
 
 
 if __name__ == "__main__":

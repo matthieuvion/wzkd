@@ -1,4 +1,4 @@
-def profile_get_kpis(result):
+def get_kpis_profile(result):
     """
     From COD API Profile endpoint json/dict, export some {key: player stats}
 
