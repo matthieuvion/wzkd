@@ -1195,7 +1195,7 @@ tqdm = ">=4.50"
 
 [[package]]
 name = "streamlit"
-version = "1.8.1"
+version = "1.9.0"
 description = "The fastest way to build data apps in Python"
 category = "main"
 optional = false
@@ -2292,8 +2292,8 @@ stqdm = [
     {file = "stqdm-0.0.4.tar.gz", hash = "sha256:8f83e0d2cd441a4f24ecd1fdaaea437626387b4aa45218af1cde558f8e6746c0"},
 ]
 streamlit = [
-    {file = "streamlit-1.8.1-py2.py3-none-any.whl", hash = "sha256:24d19c420d760c88eafc3f9508cbbd77ddab4a99a3a3b4db06f7741531f120a5"},
-    {file = "streamlit-1.8.1.tar.gz", hash = "sha256:507c84439996c6ffed150a2bdd1352b46acc8a476a1012e73241f7cc2fda3056"},
+    {file = "streamlit-1.9.0-py2.py3-none-any.whl", hash = "sha256:dd7718147cfc8eb4c5a18b36b67a36de37454e7fe49ac72470ad2a43771aef13"},
+    {file = "streamlit-1.9.0.tar.gz", hash = "sha256:543c809843b0561f5aa3850af2e90f7a6df17c80906b09ab76bab498846e6797"},
 ]
 streamlit-aggrid = [
     {file = "streamlit-aggrid-0.2.2.post4.tar.gz", hash = "sha256:75e0814dcbee8ee843ddb33356b5715dd9b763362aeb48fc9b258107f7bee9e9"},

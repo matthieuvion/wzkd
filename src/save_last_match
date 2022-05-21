@@ -1,0 +1,81 @@
+gamertag = utils.get_gamer_tag(matches)
+        br_id = utils.get_last_match_id(matches)
+
+        if br_id:
+
+            #match = await get_match(client, br_id)
+            match = await client.GetMatchStats(
+               platform_convert[selected_platform],
+               username,
+               Title.ModernWarfare,
+               Mode.Warzone,
+                matchId = br_id
+               )
+
+            match = api_format.res_to_df(match, CONF)
+            match = api_format.format_df(match, CONF, LABELS)
+            match_date, match_mode = utils.get_date(match), utils.get_mode(match)
+
+            st.markdown("**Last BR Scorecard**")
+            # st.caption(f"{match_date} ({match_mode})")
+            with st.expander(f"{match_date} ({match_mode})", True):
+
+                # Last Match : first layer of stats (team main metrics)
+
+                col31, col32, col33 = st.columns((1, 1, 1))
+                with col31:
+                    placement = kpis_match.get_placement(match, gamertag)
+                    st.metric(label="PLACEMENT", value=f"{placement}")
+
+                with col32:
+                    tkp = kpis_match.teamKillsPlacement(match, gamertag)
+                    st.metric(label="TEAM KILLS RANK", value=f"{tkp+1}")
+
+                with col33:
+                    tpk = kpis_match.teamPercentageKills(match, gamertag)
+                    st.metric(label="TEAM % ALL KILLS", value=f"{tpk}%")
+
+                # Last Match : 2nd layer of stats (team info : kills, team weapons)
+                # st.markdown("""---""")
+                col41, col42 = st.columns((1, 1))
+                with col41:
+                    team_kills = kpis_match.teamKills(match, gamertag, LABELS)
+                    render_team(team_kills, gamertag)
+
+                with col42:
+                    players_quartiles = kpis_match.playersQuartiles(match)
+                    player_kills = kpis_match.get_player_kills(match, gamertag)
+                    render_bullet_chart(
+                        lifetime_kd,
+                        lifetime_kills_ratio,
+                        player_kills,
+                        players_quartiles,
+                    )
+                st.caption(
+                    "Goal/Threshold : lifetime kills or kd | comparisons : game players' median (< 50% players), mean, 3rd quartile (< 75%), max"
+                )
+
+            with st.expander("Match details", False):
+                col51, col52 = st.columns((1, 1))
+                with col51:
+                    players_kills = kpis_match.topPlayers(match, LABELS)
+                    render_players(players_kills)
+
+                with col52:
+                    base = alt.Chart(match)
+                    hist2 = (
+                        base.mark_bar()
+                        .encode(
+                            x=alt.X("Kills:Q", bin=alt.BinParams(maxbins=15)),
+                            y=alt.Y(
+                                "count()", axis=alt.Axis(format="", title="n Players")
+                            ),
+                            tooltip=["Kills"],
+                            color=alt.value("orange"),
+                        )
+                        .properties(width=250, height=200)
+                    )
+                    red_median_line = base.mark_rule(color="red").encode(
+                        x=alt.X("mean(Kills):Q", title="Kills"), size=alt.value(3)
+                    )
+                    st.altair_chart(hist2 + red_median_line)

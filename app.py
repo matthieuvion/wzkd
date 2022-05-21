@@ -1,11 +1,8 @@
 import asyncio
-from calendar import c
 import os
-import pickle
-from re import M
-from webbrowser import get
 from dotenv import load_dotenv
 import time
+import itertools
 
 import pandas as pd
 import streamlit as st
@@ -19,17 +16,23 @@ import callofduty
 from callofduty import Mode, Title
 from callofduty.client import Client
 
-import utils
-import api_format
-import kpis_match, sessions_history, kpis_profile
+from src import (
+    client_addons,
+    utils,
+    api_format,
+    kpis_match,
+    sessions_history,
+    kpis_profile,
+    session_details,
+)
 
 
 # ------------- Customized methods to callofduty.py client, added at runtime -------------
 
 # Defined in client_addons.py and added at runtime into callofduty.py client (Client.py class)
-# All app data come from 3 endpoints : user's profile (if public), matches, match details
+# All app data come from 3 endpoints : user's profile (if public), matches details, match details
 # For demo purposes we can run the app in offline mode (cf conf.toml, decorators.py/@run_mode), loading local api responses examples
-from client_addons import (
+from src.client_addons import (
     GetMatches,
     GetMatchesDetailed,
     getMoreMatchesDetailed,
@@ -46,7 +49,8 @@ Client.GetMatchStats = GetMatchStats
 
 # -------------------------- Config files, credentials  ----------------------------------
 
-# Load our SSO token (required from COD API) from local .env. See .env-template & notebooks examples for help
+# Local app: load our SSO token (required from COD API) from local .env. See .env-template & notebooks examples for help
+# Deployed app : if app deployed to share.streamlit.io, the token could be accessible via st.secrets['']
 load_dotenv()
 
 # Load labels and global app behavior settings : run in offline mode, formatting & display options
@@ -55,20 +59,20 @@ CONF = utils.load_conf()
 LABELS = utils.load_labels()
 
 
-# ---------------------- Functions to display our Data nicely in Streamlit ----------------------
+# ---------------------- Functions to Render our Data nicely in Streamlit ----------------------
 
 # We define them now to lighten up the app layout code further below
 # Also, some hacks/tricks must be applied to better display our dataframes in streamlit
 
 
-# idea, render as a timeline :
+# maybe later, could be rendered as a timeline
 # https://discuss.streamlit.io/t/reusable-timeline-component-with-demo-for-history-of-nlp/9639
 def render_session_table(df_session, CONF):
-    """
-    Final layer applied to our list of matches with stats, to render them "well" in our app
+    """Rendering layer to matches history (several session tables), by default Battle Royale only
+
     Streamlit or even AgGrid does not render well dfs with a multi index, aka : blank rows etc.)
     We structure and display our data differently : one df => dfs grouped by session + print of sessions aggregated stats
-    Maybe later some cell highlights cf. https://discuss.streamlit.io/t/ag-grid-component-with-input-support/8108/184
+    Maybe later with some cell highlights cf. https://discuss.streamlit.io/t/ag-grid-component-with-input-support/8108/184
     """
 
     # tighter our data(frame)
@@ -110,6 +114,7 @@ def render_session_table(df_session, CONF):
 
 
 def render_session_stats(dict_):
+    """Rendering layer to aggregated stats of matches history (multiple sessions tables)"""
     # NewLine can't be (or couldn't find a working hack), must do multiple prints
 
     st.caption(
@@ -342,7 +347,7 @@ def render_bullet_chart(
 # client can run asynchronously, thus the async-await syntax
 async def main():
 
-    # ---- Title, user session state ----
+    # ---- App global config, session state user ----
 
     # more config : https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
     st.set_page_config(
@@ -352,14 +357,14 @@ async def main():
         initial_sidebar_state="auto",
     )
 
-    # For streamlit not to loop, if one username is not entered & searched
+    # For streamlit not to loop if a username is not entered & searched
     if "user" not in st.session_state:
         st.session_state["user"] = None
 
     # ----- Sidebar -----
 
     with st.sidebar:
-        # app title block
+        # app title block, might add an image file later
         st.title("WZKD")
         st.caption("Warzone COD API demo app")
 
@@ -396,11 +401,11 @@ async def main():
 
     # ----- Central part / Profile -----
 
-    # If our user is already searched (session_state['user'] is None),
+    # If our user is already searched (session_state['user'] is not None anymore),
     # then we can go further and call COD API
     if st.session_state.user:
 
-        client = await callofduty.Login(sso=os.environ["SSO"])
+        client = await callofduty.Login(sso=os.environ["SSO"] or st.secrets("SSO"))
 
         # User Profile block
         st.markdown("**Profile**")
@@ -435,14 +440,16 @@ async def main():
             )
 
         # ----- Central part / last Session Stats (if  Battle Royale matches in our Sessions history) Scorecard -----
-        # A confirmer confusé entre empty() ou container... (multiple elements, so pêtre meiilleur en fait)
-        # placeholder_last_session = st.empty()
 
+        # to be confirmed usage of empty() or container... (multiple elements, so pêtre meiilleur en fait)
         container_last_session = st.container()
 
-        async def retrieve_last_session_matches(last_session_br_ids):
-            last_session_data = []
-            for br_id in stqdm(last_session_br_ids, desc="Retrieving matches..."):
+        with container_last_session:
+            st.markdown("**Details of your last (BR) Session**")
+
+        async def retrieve_last_br_session(last_br_ids):
+            last_session = []
+            for br_id in stqdm(last_br_ids, desc="Retrieving matches..."):
                 time.sleep(0.5)
                 players_stats = await client.GetMatchStats(
                     platform_convert[selected_platform],
@@ -450,16 +457,13 @@ async def main():
                     Mode.Warzone,
                     matchId=br_id,
                 )
-            # reshape-format-augment API results
-            players_stats = api_format.res_to_df(players_stats, CONF)
-            players_stats = api_format.format_df(players_stats, CONF, LABELS)
-            players_stats = api_format.augment_df(players_stats, LABELS)
-            last_session_data.append(players_stats)
+                last_session.extend(players_stats)
 
-            return pd.concat(last_session_data)
+            last_session = api_format.res_to_df(last_session, CONF)
+            last_session = api_format.format_df(last_session, CONF, LABELS)
+            last_session = api_format.augment_df(last_session, LABELS)
 
-        with container_last_session:
-            st.markdown("**Last Battle Royale Session**")
+            return last_session
 
             # st.write("placeholder last session")
 
@@ -483,12 +487,14 @@ async def main():
         )
 
         matches = api_format.res_to_df(matches, CONF)
+        gamertag = utils.get_gamertag(matches)
+
         matches = api_format.format_df(matches, CONF, LABELS)
         matches = api_format.augment_df(matches, LABELS)
-
         history = sessions_history.to_history(matches, CONF, LABELS)
+
         sessions_stats = sessions_history.stats_per_session(history)
-        last_session_br_ids = utils.get_last_session_br_ids(history, LABELS)
+        last_br_ids = utils.get_last_br_ids(history, LABELS)
 
         # render each session (a list of matches within a timespan) and their stats in a stacked-two-columns layout
         sessions_indexes = history.session.unique().tolist()
@@ -505,17 +511,16 @@ async def main():
             # st.markdown("---")
 
         # ask for our latest Battle Royale matches session
-        # and inject them in the container placed above
+        # and inject them in the --previously-empty, container placed above
         with container_last_session:
-            last_session_data = await retrieve_last_session_matches(last_session_br_ids)
-            st.write(last_session_data.head(2))
-            # data = await retrieve_last_session_matches(last_session_br_ids)
-            # st.write(data)
+            last_session = await retrieve_last_br_session(last_br_ids)
+
+            teammates = session_details.get_session_teammates(last_session, gamertag)
+            last_stats = session_details.stats_last_session(last_session, teammates)
+            st.write(last_stats)
 
 
 if __name__ == "__main__":
-    CONF = utils.load_conf()
-    LABELS = utils.load_labels()
     # loop = asyncio.new_event_loop()
     # loop.run_until_complete(main())
     asyncio.run(main())
