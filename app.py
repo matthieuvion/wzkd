@@ -160,7 +160,7 @@ async def main():
         container_last_session = st.container()
 
         with container_last_session:
-            st.markdown("**Last BR session performance**")
+            st.markdown("**Last BR session**")
 
         async def retrieve_last_br_session(last_br_ids):
             last_session = []
