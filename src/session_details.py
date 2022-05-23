@@ -22,6 +22,8 @@ def stats_last_session(last_session, teammates):
         "kills": "sum",
         "deaths": "sum",
         "assists": "sum",
+        "damageDone": "mean",
+        "damageTaken": "mean",
         "gulagStatus": lambda x: (x.eq("W").sum() / x.isin(["W", "L"]).sum())
         if x.eq("W").sum() > 0
         else 0,
@@ -35,5 +37,10 @@ def stats_last_session(last_session, teammates):
         .reset_index()
     )
     agg_session["kdRatio"] = agg_session.kills / agg_session.deaths
+
+    def gulag_format(gulag_value):
+        return str(int(gulag_value * 100)) + " %"
+
+    agg_session.gulagStatus = agg_session.gulagStatus.apply(gulag_format)
 
     return agg_session
