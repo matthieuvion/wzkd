@@ -1,10 +1,9 @@
 def get_kpis_profile(result):
-    """
-    From COD API Profile endpoint json/dict, export some {key: player stats}
+    """Extract stats from Profile result
 
     Returns
     -------
-    dict
+    dict, {key: player stats}
     """
     return {
         "level": int(result["level"]),

@@ -20,9 +20,9 @@ from src import (
     client_addons,
     utils,
     api_format,
-    kpis_match,
+    match_details,
     sessions_history,
-    kpis_profile,
+    profile_details,
     session_details,
 )
 
@@ -67,8 +67,8 @@ LABELS = utils.load_labels()
 
 # maybe later, could be rendered as a timeline
 # https://discuss.streamlit.io/t/reusable-timeline-component-with-demo-for-history-of-nlp/9639
-def render_session_table(df_session, CONF):
-    """Rendering layer to matches history (several session tables), by default Battle Royale only
+def render_session(df_session, CONF):
+    """Rendering layer to matches history (several session tables)
 
     Streamlit or even AgGrid does not render well dfs with a multi index, aka : blank rows etc.)
     We structure and display our data differently : one df => dfs grouped by session + print of sessions aggregated stats
@@ -84,7 +84,6 @@ def render_session_table(df_session, CONF):
     df_session = df_session.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
     visible_cols = [
         "Ended at",
-        "matchID",
         "mode",
         "#",
         "KD",
@@ -129,6 +128,40 @@ def render_session_stats(dict_):
     st.caption(
         f"<div style='text-align: right;'>{round(dict_['kills']/dict_['played'], 2)} k. avg | {dict_['gulagStatus']:.0%} g. win </div>",
         unsafe_allow_html=True,
+    )
+
+
+def render_last_session(last_stats, CONF):
+    """Rendering layer to last session, as a table"""
+
+    # tighter our data(frame)
+    last_stats["K D A"] = utils.concat_cols(
+        last_stats, to_concat=["kills", "deaths", "assists"], sep="."
+    )
+
+    # customize table layout (streamlit ag grid component)
+    last_stats = last_stats.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
+    visible_cols = [
+        "Player(s)",
+        "Matches",
+        "KD",
+        "K D A",
+        "Gulag",
+    ]
+
+    gb = GridOptionsBuilder.from_dataframe(last_stats[visible_cols])
+    gb.configure_column(
+        "KD",
+        type=["numericColumn", "numberColumnFilter", "customNumericFormat"],
+        precision=2,
+    )
+
+    height = len(last_stats) * 30 + 40
+    table = AgGrid(
+        last_stats[visible_cols],
+        gridOptions=gb.build(),
+        height=height,  # hard coded height, works well for default aggrid theme
+        fit_columns_on_grid_load=False,
     )
 
 
@@ -417,7 +450,7 @@ async def main():
             Mode.Warzone,
         )
 
-        profile_kpis = kpis_profile.get_kpis_profile(profile)
+        profile_kpis = profile_details.get_kpis_profile(profile)
         lifetime_kd = profile_kpis["br_kd"]
         lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
         with st.expander(username, True):
@@ -428,7 +461,7 @@ async def main():
                 st.metric(label="MATCHES", value=profile_kpis["matches_count_all"])
             with col23:
                 st.metric(
-                    label="% COMPETITIVE (BR matches)",
+                    label="% COMPETITIVE (BR)",
                     value=f"{profile_kpis['competitive_ratio']}%",
                 )
             with col24:
@@ -445,7 +478,7 @@ async def main():
         container_last_session = st.container()
 
         with container_last_session:
-            st.markdown("**Details of your last (BR) Session**")
+            st.markdown("**Last BR session performance**")
 
         async def retrieve_last_br_session(last_br_ids):
             last_session = []
@@ -506,7 +539,7 @@ async def main():
             with col1:
                 render_session_stats(dict_)
             with col2:
-                render_session_table(df_session, CONF)
+                render_session(df_session, CONF)
 
             # st.markdown("---")
 
@@ -517,7 +550,7 @@ async def main():
 
             teammates = session_details.get_session_teammates(last_session, gamertag)
             last_stats = session_details.stats_last_session(last_session, teammates)
-            st.write(last_stats)
+            render_last_session(last_stats, CONF)
 
 
 if __name__ == "__main__":
