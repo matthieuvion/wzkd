@@ -4,10 +4,10 @@ from src import utils
 
 
 def run_mode(func):
-    """
-    Decorator that checks if "offline" mode is activated in our conf
-    If so, do not call COD API but load local example files (/data), depending on func name called by app
-    Function is defined in a async manner to comply with overall client behavior
+    """Decorator for app funcs that do data collection, if mode set to "offline" fetch local files
+
+    Defined in a async manner to comply with overall app/client behavior
+    Local example files (/data) are previously saved calls made to the api to each route used by the app (profile, match, matches)
     """
 
     @wraps(func)
@@ -41,9 +41,8 @@ def run_mode(func):
 
 
 def br_only(func):
-    """
-    Decorator that checks if "br_only" mode is activated in our conf (True by default)
-    If so, remove matches that are not of mode 'Battle Royale' from our matches result
+    """Decorator that checks if "br_only" mode is activated in our conf (True by default)
+    If so, remove matches that are not of mode 'Battle Royale' from matches result
     """
     CONF = utils.load_conf()
     LABELS = utils.load_labels()

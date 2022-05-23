@@ -94,7 +94,7 @@ async def getMoreMatchesDetailed(client, platform, username, title, mode, **kwar
 
 
 @run_mode
-@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=30, max_tries=3)
+@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=45, max_tries=8)
 async def GetMatchStats(
     self,
     platform,
@@ -115,7 +115,7 @@ async def GetMatchStats(
     # api result, at very least for Warzone calls  {'data':{'all_players:' is the only key},'status': call status}
 
 
-@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=10, max_tries=5)
+@backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=45, max_tries=8)
 async def GetMatches(self, platform, username: str, title: Title, mode: Mode, **kwargs):
     """
     Returns matches history, notably matches Ids

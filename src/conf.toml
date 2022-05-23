@@ -3,7 +3,7 @@ br_only = true
 mode = "offline"
 filename.matches = "matches_20.pkl"
 filename.more_matches = "matches_60.pkl"
-filename.match = "match.pkl"
+filename.match = "match_br_1.pkl"
 filename.profile = "profile.pkl"
 
 [API_OUTPUT_FORMAT]
@@ -77,6 +77,9 @@ labels.headshots = '% headshots'
 labels.percentTimeMoving = '% moving'
 labels.duration = 'Game duration'
 labels.gulagStatus = 'Gulag'
+labels.played = 'Matches'
+labels.username = 'Player(s)'
+
 
 
 
