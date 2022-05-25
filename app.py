@@ -198,7 +198,7 @@ async def main():
             username,
             Title.ModernWarfare,
             Mode.Warzone,
-            n_calls=2,
+            min_br_matches=20,
         )
 
         matches = api_format.res_to_df(matches, CONF)

@@ -10,7 +10,7 @@ Inside
 ------
 Functions to render our Data nicely in Streamlit
 After many tests, we found out that best results (to us) would be :
-- rendering dataframes mainly as Ag Grid tables, using Streamlit Ag Grid component
+- rendering dataframes mainly as Ag Grid tables (Streamlit Ag Grid component) or plotly tables
 - rendering charts with plotly
 - while still applying some hacks/tricks to better display our --previously, dataframes
 - aka : no use of multi indexes df that would render with blank rows, convert dtype datetime, tighten up our tables etc...

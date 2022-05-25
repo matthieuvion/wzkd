@@ -44,8 +44,8 @@ async def GetProfile(self, platform, username: str, title: Title, mode: Mode, **
 async def GetMatchesDetailed(
     self, platform, username: str, title: Title, mode: Mode, **kwargs
 ):
-    """
-    Returns matches history, with username's stats for every match
+    """Returns matches history, with username's stats for every match
+
     Modifications compared to callofduty.py > client.GetPlayerMatches :
      - removed if platform == 'Activision', no longer supported by API
      - filtered out summary data from API's matches res: ['data'] becomes ['data']['matches']
@@ -73,24 +73,29 @@ async def GetMatchesDetailed(
 
 @run_mode
 async def getMoreMatchesDetailed(client, platform, username, title, mode, **kwargs):
-    """
-    Loop GetMatchesDetailed() to go deeper into matches history,
-    using endTimestamp argument in GetMatchesDetailed()
+    """Loop GetMatchesDetailed() to go deeper into matches history,
+
+    Use endTimestamp argument in GetMatchesDetailed() as a delimiter
+    Built to loop till we collect enough Battle Royale Matches,
+    as specified with min_br_matches (20 by default)
     """
 
-    n_calls = kwargs.get("n_calls", 2)
+    min_br_matches = kwargs.get("min_br_matches", 20)
+    count_br_matches = 0
     all_batchs = []
     endTimestamp = 0
 
-    while len(all_batchs) < n_calls:
-        batch = await client.GetMatchesDetailed(
+    while count_br_matches < min_br_matches:
+        batch_20 = await client.GetMatchesDetailed(
             platform, username, title, mode, endTimestamp=endTimestamp
         )
-        endTimestamp = batch[-1]["utcStartSeconds"] * 1000
-        all_batchs.append(batch)
-    more_matches = list(itertools.chain(*all_batchs))
+        print("got one batch of 20 matches")
+        endTimestamp = batch_20[-1]["utcStartSeconds"] * 1000
+        count_br_matches += sum(["br_br" in match["mode"] for match in batch_20])
+        print(f"count_br_matches: {count_br_matches}")
+        all_batchs.append(batch_20)
 
-    return more_matches
+    return list(itertools.chain(*all_batchs))
 
 
 @run_mode
@@ -102,11 +107,9 @@ async def GetMatchStats(
     mode: Mode,
     matchId: int,
     language: Language = Language.English,
-    **kwargs
+    **kwargs,
 ):
-    """
-    Returns all players detailed stats for one match, given a specified match id
-    """
+    """Returns all players detailed stats for one match, given a specified match id"""
     return (
         await self.http.GetFullMatch(
             title.value, platform, mode.value, matchId, language.value
@@ -117,9 +120,7 @@ async def GetMatchStats(
 
 @backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=45, max_tries=8)
 async def GetMatches(self, platform, username: str, title: Title, mode: Mode, **kwargs):
-    """
-    Returns matches history, notably matches Ids
-    """
+    """Returns matches history, notably matches Ids"""
 
     limit: int = kwargs.get("limit", 20)
     startTimestamp: int = kwargs.get("startTimestamp", 0)
