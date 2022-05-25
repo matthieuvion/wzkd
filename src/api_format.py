@@ -16,8 +16,8 @@ Then make data readable & useable for future display / aggregations
 
 
 def extract_loadouts(df, CONF):
-    """
-    Extract player(s) loadout(s) from match(es) df > player col > 'loadout' (or 'loadouts')
+    """Extract player(s) loadout(s) from match(es) df > player col > 'loadout' (or 'loadouts')
+
     Flatten (breakdown) them into one or several cols : one for every loadout
     n of loadouts to extract defined in conf.toml
 
@@ -53,8 +53,7 @@ def extract_loadouts(df, CONF):
 
 
 def parse_loadout(loadout_value, LABELS):
-    """
-    Parse a loadout entry (dict),  extract weapons names then rename using wzlabels.json
+    """Parse a loadout entry (dict), extract weapons names then rename using wzlabels.json
 
     Parameters
     ----------
@@ -94,8 +93,7 @@ def parse_loadout(loadout_value, LABELS):
 
 
 def extract_missions(df):
-    """
-    Flatten then extract (desired) mission stats from matche(s) df > player col > 'brMissionStats'
+    """Flatten then extract (desired) mission stats from matche(s) df > player col > 'brMissionStats'
 
     Parameters
     ----------
@@ -117,8 +115,7 @@ def extract_missions(df):
 
 
 def parse_mission(mission_value):
-    """
-    Parse a mission entry (dict), extracting 'count'
+    """Parse a mission entry (dict), extracting 'count'
 
     Parameters
     ----------
@@ -142,8 +139,8 @@ def parse_mission(mission_value):
 
 
 def res_to_df(res, CONF):
-    """
-    Convert Match or Matches API result to a DataFrame we can perform our aggregations nicely, later.
+    """Convert Match or Matches API result to a DataFrame we can perform our aggregations nicely, later.
+
     Built mainly to analyze a 'Battle Royale' match, but should work with other modes without too many modifs
     Expand (flatten) most entries. I.e 'player & 'playerstats' that have multiple levels; including loadout(s)
 
@@ -210,8 +207,8 @@ def res_to_df(res, CONF):
 
 
 def format_df(df, CONF, LABELS):
-    """
-    Add a first layer of standadization (as : properly formatted) to our matches/match DataFrame
+    """Add a first layer of standadization (as : properly formatted) to our matches/match DataFrame
+
     For better readibility of API data and future aggregations we will carry on.
     Among others :
     - convert timestamps and durations for human readability
@@ -266,8 +263,7 @@ def format_df(df, CONF, LABELS):
 
 
 def add_gulag_status(df, LABELS):
-    """
-    Add a new column 'gulagStatus', giving 'gulagKills' & 'gulagDeaths' entries
+    """Add a new column 'gulagStatus', function of 'gulagKills' & 'gulagDeaths' entries
 
     Note:
     -----
