@@ -26,11 +26,12 @@ from src import (
 
 import app_rendering
 
-# ------------- Customized methods for callofduty.py client, added at runtime -------------
+# ------------- Customized methods/edits of callofduty.py client, added at runtime -------------
 
-# Defined in client_addons.py and added at runtime into callofduty.py client (Client.py class)
-# All app data come from 3 endpoints : user's profile (if public), matches details, match details
-# For demo purposes we can run the app in offline mode (cf conf.toml, decorators.py/@run_mode), loading local api responses examples
+# Defined in client_addons.py and added at runtime into callofduty.py client
+# All app data come from 3 endpoints :
+# user's profile (must be public), matches details (matches history with stats), match details
+
 from src.client_addons import (
     GetMatches,
     GetMatchesDetailed,
@@ -46,7 +47,7 @@ Client.GetProfile = GetProfile
 Client.GetMatchStats = GetMatchStats
 HTTP.Send = Send
 
-# -------------------------- Config files, credentials  ----------------------------------
+# -------------------------- Config, credentials  ----------------------------------
 
 # Local app: load our SSO token (required from COD API) from local .env. See .env-template & notebooks examples for help
 # Deployed app : if app deployed to share.streamlit.io, the token could be accessible via st.secrets['']
@@ -195,36 +196,38 @@ async def main():
         # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
 
         # idea for future : save result in session state if doable, so we do not rerun auto except if we press search again
-        matches = await getMoreMatchesDetailed(
-            client,
-            platform_convert[selected_platform],
-            username,
-            Title.ModernWarfare,
-            Mode.Warzone,
-            min_br_matches=20,
-        )
-        # if matches :
-        matches = api_format.res_to_df(matches, CONF)
-        gamertag = utils.get_gamertag(matches)
+        # or firebase ;)
+        with st.spinner("Collecting match history..."):
+            matches = await getMoreMatchesDetailed(
+                client,
+                platform_convert[selected_platform],
+                username,
+                Title.ModernWarfare,
+                Mode.Warzone,
+                min_br_matches=20,
+            )
+            # TODO :(more) error handling in case of API failure ...if matches... :
+            matches = api_format.res_to_df(matches, CONF)
+            gamertag = utils.get_gamertag(matches)
 
-        matches = api_format.format_df(matches, CONF, LABELS)
-        matches = api_format.augment_df(matches, LABELS)
-        history = sessions_history.to_history(matches, CONF, LABELS)
+            matches = api_format.format_df(matches, CONF, LABELS)
+            matches = api_format.augment_df(matches, LABELS)
+            history = sessions_history.to_history(matches, CONF, LABELS)
 
-        sessions_stats = sessions_history.stats_per_session(history)
-        last_br_ids = utils.get_last_br_ids(history, LABELS)
+            sessions_stats = sessions_history.stats_per_session(history)
+            last_br_ids = utils.get_last_br_ids(history, LABELS)
 
-        # render each session (a list of matches within a timespan) and their stats in a stacked-two-columns layout
-        sessions_indexes = history.session.unique().tolist()
-        history_grouped = history.groupby("session")
-        for idx in sessions_indexes:
-            dict_ = sessions_stats.get(idx)
-            df_session = history_grouped.get_group(idx)
-            col1, col2 = st.columns((0.2, 0.8))
-            with col1:
-                app_rendering.render_session_stats(dict_)
-            with col2:
-                app_rendering.render_session(df_session, CONF)
+            # render each session (a list of matches within a timespan) and their stats in a stacked-two-columns layout
+            sessions_indexes = history.session.unique().tolist()
+            history_grouped = history.groupby("session")
+            for idx in sessions_indexes:
+                dict_ = sessions_stats.get(idx)
+                df_session = history_grouped.get_group(idx)
+                col1, col2 = st.columns((0.2, 0.8))
+                with col1:
+                    app_rendering.render_session_stats(dict_)
+                with col2:
+                    app_rendering.render_session(df_session, CONF)
 
             # st.markdown("---")
 
