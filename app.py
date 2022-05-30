@@ -12,6 +12,7 @@ from stqdm import stqdm
 import callofduty
 from callofduty import Mode, Title
 from callofduty.client import Client
+from callofduty.http import HTTP
 
 from src import (
     client_addons,
@@ -34,16 +35,16 @@ from src.client_addons import (
     GetMatches,
     GetMatchesDetailed,
     getMoreMatchesDetailed,
-    GetMatchesSummary,
     GetMatchStats,
     GetProfile,
+    Send,
 )
 
 Client.GetMatches = GetMatches
 Client.GetMatchesDetailed = GetMatchesDetailed
-Client.GetMatchesSummary = GetMatchesSummary
 Client.GetProfile = GetProfile
 Client.GetMatchStats = GetMatchStats
+HTTP.Send = Send
 
 # -------------------------- Config files, credentials  ----------------------------------
 
@@ -162,9 +163,11 @@ async def main():
         with container_last_session:
             st.markdown("**Last BR session**")
 
-        async def retrieve_last_br_session(last_br_ids):
+        async def retrieve_last_br_session(last_br_ids, **kwargs):
+            # shouldn't be above 8-10 in a row, I believe, not to hit API rates limits
+            max = kwargs.get("max", 8)
             last_session = []
-            for br_id in stqdm(last_br_ids, desc="Retrieving matches..."):
+            for br_id in stqdm(last_br_ids[0:max], desc="Retrieving matches..."):
                 time.sleep(0.5)
                 players_stats = await client.GetMatchStats(
                     platform_convert[selected_platform],
@@ -200,7 +203,7 @@ async def main():
             Mode.Warzone,
             min_br_matches=20,
         )
-
+        # if matches :
         matches = api_format.res_to_df(matches, CONF)
         gamertag = utils.get_gamertag(matches)
 
