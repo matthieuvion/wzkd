@@ -24,7 +24,7 @@ from src import (
     session_details,
 )
 
-import app_rendering
+import rendering
 
 # ------------- Customized methods/edits of callofduty.py client, added at runtime -------------
 
@@ -68,12 +68,16 @@ async def main():
 
     # more config : https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
     st.set_page_config(
-        page_title="wzkd",
-        page_icon=None,
+        page_title="Home",
+        page_icon="👋",
         layout="centered",
         initial_sidebar_state="auto",
     )
-
+    
+    # title (logo)
+    st.image("data/wzkd3.png", width=130)
+    # Probably later : add tooltip to 'search user here 👈 " and maybe "demo mode => offline"
+    
     # For streamlit not to loop if a username is not entered & searched
     if "user" not in st.session_state:
         st.session_state["user"] = None
@@ -81,9 +85,7 @@ async def main():
     # ----- Sidebar -----
 
     with st.sidebar:
-        # app title block, might add an image file later
-        st.title("WZKD")
-        st.caption("Warzone COD API demo app")
+
 
         # Search Player block
         st.subheader("Search Player")
@@ -92,7 +94,7 @@ async def main():
             with col1:
                 selected_platform = st.selectbox("platform", ("Bnet", "Xbox", "Psn"))
             with col2:
-                username = st.text_input("username", "e.g. amadevs#1689")
+                username = st.text_input("username", "amadevs#1689")
                 # may want to use session state here for username ?
             submit_button = st.form_submit_button("submit")
 
@@ -137,6 +139,7 @@ async def main():
         profile_kpis = profile_details.get_kpis_profile(profile)
         lifetime_kd = profile_kpis["br_kd"]
         lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
+        
         with st.expander(username, True):
             col21, col22, col23, col24, col25 = st.columns((0.5, 0.6, 0.6, 0.6, 0.6))
             with col21:
@@ -145,7 +148,7 @@ async def main():
                 st.metric(label="MATCHES", value=profile_kpis["matches_count_all"])
             with col23:
                 st.metric(
-                    label="% COMPETITIVE (BR)",
+                    label="% BR matchs",
                     value=f"{profile_kpis['competitive_ratio']}%",
                 )
             with col24:
@@ -153,7 +156,7 @@ async def main():
             with col25:
                 st.metric(label="Kills / Match (BR)", value=lifetime_kills_ratio)
             st.caption(
-                "Matches: lifetime matches all WZ modes, %Competitive : BR matches / life. matches, K/D ratio : BR Kills / Deaths"
+                "Matches: lifetime matches all WZ modes, % Battle Royale matches / all matches, K/D ratio : BR Kills / Deaths"
             )
 
         # ----- Central part / last Session Stats (if  Battle Royale matches in our Sessions history) Scorecard -----
@@ -225,10 +228,9 @@ async def main():
                 df_session = history_grouped.get_group(idx)
                 col1, col2 = st.columns((0.2, 0.8))
                 with col1:
-                    app_rendering.render_session_stats(dict_)
+                    rendering.render_session_stats(dict_)
                 with col2:
-                    app_rendering.render_session(df_session, CONF)
-
+                    rendering.ag_render_session(df_session, CONF)
             # st.markdown("---")
 
         # ask for our latest Battle Royale matches session
@@ -238,7 +240,7 @@ async def main():
 
             teammates = session_details.get_session_teammates(last_session, gamertag)
             last_stats = session_details.stats_last_session(last_session, teammates)
-            app_rendering.render_last_session(last_stats, CONF)
+            rendering.ag_render_last_session(last_stats, CONF)
 
 
 if __name__ == "__main__":
