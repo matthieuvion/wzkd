@@ -29,7 +29,7 @@ import rendering
 # ------------- Customized methods/edits of callofduty.py client, added at runtime -------------
 
 # Defined in client_addons.py and added at runtime into callofduty.py client
-# All app data come from 3 endpoints :
+# All app data come from 3 main endpoints :
 # user's profile (must be public), matches details (matches history with stats), match details
 
 from src.client_addons import (
@@ -73,11 +73,11 @@ async def main():
         layout="centered",
         initial_sidebar_state="auto",
     )
-    
+
     # title (logo)
     st.image("data/wzkd3.png", width=130)
     # Probably later : add tooltip to 'search user here 👈 " and maybe "demo mode => offline"
-    
+
     # For streamlit not to loop if a username is not entered & searched
     if "user" not in st.session_state:
         st.session_state["user"] = None
@@ -85,7 +85,6 @@ async def main():
     # ----- Sidebar -----
 
     with st.sidebar:
-
 
         # Search Player block
         st.subheader("Search Player")
@@ -139,7 +138,7 @@ async def main():
         profile_kpis = profile_details.get_kpis_profile(profile)
         lifetime_kd = profile_kpis["br_kd"]
         lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
-        
+
         with st.expander(username, True):
             col21, col22, col23, col24, col25 = st.columns((0.5, 0.6, 0.6, 0.6, 0.6))
             with col21:

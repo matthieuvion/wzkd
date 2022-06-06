@@ -1,24 +1,55 @@
+from pathlib import Path
 import datetime
 from datetime import datetime, timezone
 from doctest import DocFileTest
+from re import S
 import pandas as pd
 import numpy as np
 import toml
 import json
 
+
 # CONF utils
 
+import streamlit as st
 
-def load_labels(file="src/wz_labels.json"):
+
+def load_labels_save(file="src/wz_labels.json"):
     """--> dict, with data needed to parse weapons, games modes etc."""
     with open(file) as f:
         LABELS = json.load(f)
     return LABELS
 
 
-def load_conf(file="src/conf.toml"):
+def load_conf_save(file="src/conf.toml"):
     """--> dict, overall app config : run in offline mode, display Battle Royale games only etc."""
     with open(file) as f:
+        CONF = toml.load(f)
+    return CONF
+
+
+def load_labels():
+    """--> dict, with data needed to parse weapons, games modes etc."""
+
+    filepath = Path.cwd() / "src" / "wz_labels.json"
+    # use case, @decorator fails to import when executed from notebooks/
+    if not filepath.is_file():
+        filepath = Path.cwd().parent / "src" / "wz_labels.json"
+
+    with open(filepath) as f:
+        LABELS = json.load(f)
+    return LABELS
+
+
+def load_conf():
+    """--> dict, overall app config : run in offline mode, display Battle Royale games only etc."""
+
+    filepath = Path.cwd() / "src" / "conf.toml"
+    # use case, @decorator fails to import when executed from notebooks/
+    if not filepath.is_file():
+        filepath = Path.cwd().parent / "src" / "conf.toml"
+
+    with open(filepath) as f:
         CONF = toml.load(f)
     return CONF
 
