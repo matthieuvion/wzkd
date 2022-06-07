@@ -22,7 +22,8 @@
          "br_rumble_clash_caldera": "Clash",
          "br_payload_playlist_wz325/rbrthpayload": "Rbth Payload",
          "br_dmz_playlist_wz325/rbrthbmo_quads": "Rbth Pldr x4",
-         "br_mendota_playlist_wz330/op_mon": "Op Monarch"
+         "br_mendota_playlist_wz330/op_mon": "Op Monarch",
+         "br_respect_playlist_wz335/respect": "Champion of Caldera"
       }
    },
    "weapons": {
@@ -77,6 +78,7 @@
          "ar_t9soviet": "Vargo 52?",
          "ar_valpha": "ASVAL",
          "ar_voscar": "Volks",
+         "ar_promeo45": "Nikita",
          "la_gromeo": "Pila",
          "la_kgolf": "Strela",
          "la_m1bravo": "Bazooka",
@@ -122,6 +124,7 @@
          "sh_lindia98": "Double barrel",
          "sh_mike97": "Combat shotgun",
          "sh_t9season6": "ground shotgun?",
+         "sh_mike26": "VLK Rogue",
          "sm_aromeo43": "Armaguerra",
          "sm_mpapa40": "MP40",
          "sm_mpapa5": "MP5 mw",
