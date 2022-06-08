@@ -122,7 +122,7 @@ async def main():
         st.subheader("💁 **Getting Started** ")
         # might change, now uno/Activision seems to work
         st.markdown(
-            "Enter Activision ID and your plateform on the sidebar menu. Note that your profile must be public so this app or other websites can track your stats. Your Activision ID can differ from in-game username, if you changed it in the past. You can retrieve it under in-game settings / Account"
+            "Enter your iD and your plateform on the sidebar menu. Note that your profile must be public so this app or other websites can track your stats. Your Activision ID can differ from in-game username, if you changed it in the past. You can retrieve it under in-game settings / Account"
         )
         st.markdown("#")
         st.subheader("👁‍🗨 **Hunder the Hood** ")

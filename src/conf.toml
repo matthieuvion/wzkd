@@ -1,7 +1,7 @@
 [APP_BEHAVIOR]
 br_only = true
 mode = "online"
-filename.matches = "matches_20.pkl"
+filename.matches = "matches_20_1.pkl"
 filename.more_matches = "matches_60.pkl"
 filename.match = "match_br_1.pkl"
 filename.profile = "profile.pkl"
