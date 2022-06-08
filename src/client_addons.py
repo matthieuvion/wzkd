@@ -1,7 +1,12 @@
 import asyncio
 import os
+from debugpy import configure
 import dotenv
 import itertools
+import time
+
+import streamlit as st
+from stqdm import stqdm
 
 import backoff
 import httpx
@@ -22,7 +27,7 @@ Inside
 ------
 
 Edit or define additional methods in callofduty.client.py, specifically http and client modules
-The "new" methods will then be imported into respective class at runtime when we run app.py
+The "new" methods will then be imported into respective class at runtime when we run our app.py
 Cf. notebooks/cod_api_doc.ipnyb or matches.ipnyb if you're lost
 
 The addons aim at:
@@ -30,7 +35,7 @@ The addons aim at:
 - add a default httpx.Timeout of 15 sec (original code : wasn't specified = 5 by default)
 
 2. Additional/replacing methods in Class Client :
-- Change the way data was truncated by codclient.py, after being sent back by COD API
+- Change the way data was truncated by callofduty.py client, after being sent back by COD API
 - Add some backoff / retry to handle (some of) API availability/rates limitations
 - Add a new method that loop over matches to go deeper into Matches history
 - Add a new method that loop over several matches ids to get several detailed match stats
@@ -38,12 +43,18 @@ The addons aim at:
 """
 
 
-""" 1. http module, class HTTP, method Send """
+""" 
+
+1. Edit callofduty.py : http module, class HTTP, method Send
+
+"""
 
 
 async def Send(self, req):
     """
     Perform an HTTP request
+    Tweak : added a longer default timeout using httpx.Timeout
+    TODO : API error handling
     """
 
     # // to original client :  add a httpx.Timeout argument
@@ -90,7 +101,11 @@ async def Send(self, req):
             raise HTTPException(res.status_code, data)
 
 
-""" 2. client module, class Client, several methods """
+""" 
+
+2. Edit/addons to callofduty.py : client module, class Client, several top-level methods that call COD data
+
+"""
 
 
 @run_mode
@@ -137,7 +152,7 @@ async def GetMatchesDetailed(
 
 
 @run_mode
-async def getMoreMatchesDetailed(client, platform, username, title, mode, **kwargs):
+async def GetMoreMatchesDetailed(client, platform, username, title, mode, **kwargs):
     """Loop GetMatchesDetailed() to go deeper into matches history,
 
     Use endTimestamp argument in GetMatchesDetailed() as a delimiter
@@ -183,6 +198,31 @@ async def GetMatchStats(
     # {'data':{'all_players:' is the only key},'status': call status}
 
 
+@run_mode
+async def GetMoreMatchStats(
+    client, platform, username, title, mode, match_ids, **kwargs
+):
+    """Loop a list of match ids to gather more than one match (detailed) stats"""
+
+    # Not 100% certain, but shouldn't be above 8-10 in a row, not to hit rate limit
+    n_max = kwargs.get("n_max", 8)
+    batch_match = []
+
+    # Streamlit specific : extension stqdm to render a progress bar in the app front
+    for match_id in stqdm(
+        match_ids[0:n_max], desc="Retrieving last session detailed stats..."
+    ):
+        time.sleep(0.5)  # TODO (maybe) better rate limit handling
+        players_stats = await client.GetMatchStats(
+            platform,
+            title,
+            mode,
+            matchId=match_id,
+        )
+        batch_match.extend(players_stats)
+    return batch_match
+
+
 @backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=45, max_tries=8)
 async def GetMatches(self, platform, username: str, title: Title, mode: Mode, **kwargs):
     """Returns matches history, notably matches Ids -without stats"""
@@ -212,7 +252,7 @@ async def GetMatches(self, platform, username: str, title: Title, mode: Mode, **
 async def GetMatchesSummary(
     self, platform, username: str, title: Title, mode: Mode, **kwargs
 ):
-
+    """Returns matches history, but ['data']['summary'] instead of ['data']['matches']"""
     limit: int = kwargs.get("limit", 20)
     startTimestamp: int = kwargs.get("startTimestamp", 0)
     endTimestamp: int = kwargs.get("endTimestamp", 0)

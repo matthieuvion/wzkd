@@ -20,6 +20,7 @@ def run_mode(func):
         async def load_file():
             router = {
                 "GetMatchStats": CONF.get("APP_BEHAVIOR")["filename"]["match"],
+                "GetMoreMatchStats": CONF.get("APP_BEHAVIOR")["filename"]["match"],
                 "GetMatchesDetailed": CONF.get("APP_BEHAVIOR")["filename"]["matches"],
                 "getMoreMatchesDetailed": CONF.get("APP_BEHAVIOR")["filename"][
                     "more_matches"

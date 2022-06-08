@@ -35,11 +35,12 @@ After many tests, we found out that best results (to us) would be :
 
 
 # maybe later, could be rendered as a timeline
-# 
+#
 
 """
 Rendering tables with Streamlit Ag Grid, currently not used but kept as exemples
 """
+
 
 def ag_render_session(df_session, CONF):
     """Rendering layer to matches history (history = --usually, several session tables)
@@ -79,9 +80,10 @@ def ag_render_session(df_session, CONF):
         df_session[visible_cols],
         gridOptions=gb.build(),
         height=height,  # hard coded height, works well for default aggrid theme
-        width ="100%", # not sure it is working ^_^
-        fit_columns_on_grid_load=False, #  if true, expand columns sizes to fill the whole grid width
+        width="100%",  # not sure it is working ^_^
+        fit_columns_on_grid_load=False,  #  if true, expand columns sizes to fill the whole grid width
     )
+
 
 def ag_render_last_session(last_stats, CONF):
     """Rendering layer to last session, as a table"""
@@ -122,13 +124,15 @@ def ag_render_last_session(last_stats, CONF):
         last_stats[visible_cols],
         gridOptions=gb.build(),
         height=height,  # hard coded height, works well for default aggrid theme
-        width ="10%", # not sure it is working ^_^
+        width="10%",  # not sure it is working ^_^
         fit_columns_on_grid_load=False,
     )
+
 
 """
 Rendering tables with Plotly, currently in use
 """
+
 
 def render_team(team_kills, gamertag):
     """Render Team KDA concat with Team Weapons, in a plotly table"""
@@ -246,6 +250,7 @@ def render_players(players_kills):
 Other types of rendering
 """
 
+
 def render_session_stats(dict_):
     """Rendering layer to aggregated stats of matches history (multiple sessions tables)"""
     # NewLine can't be (or couldn't find a working hack), must do multiple prints
@@ -268,6 +273,7 @@ def render_session_stats(dict_):
 """
 Rendering charts with Plotly
 """
+
 
 def render_bullet_chart(
     lifetime_kd, lifetime_kills_ratio, player_kills, players_quartiles

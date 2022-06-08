@@ -15,7 +15,6 @@ from callofduty.client import Client
 from callofduty.http import HTTP
 
 from src import (
-    client_addons,
     utils,
     api_format,
     match_details,
@@ -35,12 +34,14 @@ import rendering
 from src.client_addons import (
     GetMatches,
     GetMatchesDetailed,
-    getMoreMatchesDetailed,
+    GetMoreMatchesDetailed,
     GetMatchStats,
+    GetMoreMatchStats,
     GetProfile,
     Send,
 )
 
+# callofduty.py edited methods, added at runtime
 Client.GetMatches = GetMatches
 Client.GetMatchesDetailed = GetMatchesDetailed
 Client.GetProfile = GetProfile
@@ -54,7 +55,7 @@ HTTP.Send = Send
 load_dotenv()
 
 # Load labels and global app behavior settings : run in offline mode, formatting & display options
-platform_convert = {"Bnet": "battle", "Xbox": "xbox", "Psn": "psn"}
+platform_convert = {"Bnet": "battle", "Xbox": "xbox", "Psn": "psn", "Acti": "uno"}
 CONF = utils.load_conf()
 LABELS = utils.load_labels()
 
@@ -64,15 +65,16 @@ LABELS = utils.load_labels()
 # client can run asynchronously, thus the async-await syntax
 async def main():
 
-    # ---- App global config, session state user ----
+    # App global config, Session States
 
-    # more config : https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
     st.set_page_config(
         page_title="Home",
         page_icon="👋",
         layout="centered",
         initial_sidebar_state="auto",
     )
+    # more config options see:
+    # https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
 
     # title (logo)
     st.image("data/wzkd3.png", width=130)
@@ -80,9 +82,9 @@ async def main():
 
     # For streamlit not to loop if a username is not entered & searched
     if "user" not in st.session_state:
-        st.session_state["user"] = None
+        st.session_state.user = None
 
-    # ----- Sidebar -----
+    # Sidebar
 
     with st.sidebar:
 
@@ -91,37 +93,51 @@ async def main():
         with st.form(key="loginForm"):
             col1, col2 = st.columns((1, 2))
             with col1:
-                selected_platform = st.selectbox("platform", ("Bnet", "Xbox", "Psn"))
+                selected_platform = st.selectbox(
+                    "platform", ("Bnet", "Xbox", "Psn", "Acti")
+                )
             with col2:
                 username = st.text_input("username", "amadevs#1689")
-                # may want to use session state here for username ?
             submit_button = st.form_submit_button("submit")
 
             # when user is searched/logged-in we keep trace of him, through session_state
-            if submit_button:
+            # if submit_button:
+            if username:
                 st.session_state.user = username
 
-        # Navigation menu with option-menu , try to get several pages later
-        # try menu option streamlit component
+        # TODO Navigation menu with option-menu or newer st multipages feature
         # menu = option_menu(
         #    " ",
         #    ["Home", "Settings"],
         #    icons=["house", "gear"],
         #    menu_icon="cast",
         #    default_index=1,
-        # )
-        # menu basic version with st.checkbox
-        # st.sidebar.subheader("Menu")
-        # st.checkbox('Home')
-        # st.checkbox('Last BR detailed')
-        # st.checkbox('Historical data')
-        # st.checkbox('About')po
+
+    # Temporary Home : App help / About
+
+    placeholder_about = st.empty()
+    with placeholder_about.container():
+        # TODO better syntax and overall design + content
+        st.markdown("#")
+        st.subheader("💁 **Getting Started** ")
+        # might change, now uno/Activision seems to work
+        st.markdown(
+            "Enter Activision ID and your plateform on the sidebar menu. Note that your profile must be public so this app or other websites can track your stats. Your Activision ID can differ from in-game username, if you changed it in the past. You can retrieve it under in-game settings / Account"
+        )
+        st.markdown("#")
+        st.subheader("👁‍🗨 **Hunder the Hood** ")
+        st.markdown("Blabla")
+    # Central part
 
     # ----- Central part / Profile -----
 
     # If our user is already searched (session_state['user'] is not None anymore),
     # then we can go further and call COD API
-    if st.session_state.user:
+
+    # if st.session_state.user:
+    if submit_button:
+        # flush temporary help/About
+        placeholder_about.empty()
 
         client = await callofduty.Login(sso=os.environ["SSO"] or st.secrets("SSO"))
 
@@ -130,6 +146,8 @@ async def main():
 
         profile = await client.GetProfile(
             platform_convert[selected_platform],
+            # maybe here use session_state.user
+            # or add a username = session_state.user and do not change functions
             username,
             Title.ModernWarfare,
             Mode.Warzone,
@@ -158,49 +176,26 @@ async def main():
                 "Matches: lifetime matches all WZ modes, % Battle Royale matches / all matches, K/D ratio : BR Kills / Deaths"
             )
 
-        # ----- Central part / last Session Stats (if  Battle Royale matches in our Sessions history) Scorecard -----
+        # ----- Central part / last Session Stats (if Battle Royale matches in our Sessions history) Scorecard -----
 
-        # to be confirmed usage of empty() or container... (multiple elements, so pêtre meiilleur en fait)
+        # final layout tbc : empty() vs. container()
+        # This container will be filled after matches history + last session match ids data collection
         container_last_session = st.container()
-
         with container_last_session:
-            st.markdown("**Last BR session**")
-
-        async def retrieve_last_br_session(last_br_ids, **kwargs):
-            # shouldn't be above 8-10 in a row, I believe, not to hit API rates limits
-            max = kwargs.get("max", 8)
-            last_session = []
-            for br_id in stqdm(last_br_ids[0:max], desc="Retrieving matches..."):
-                time.sleep(0.5)
-                players_stats = await client.GetMatchStats(
-                    platform_convert[selected_platform],
-                    Title.ModernWarfare,
-                    Mode.Warzone,
-                    matchId=br_id,
-                )
-                last_session.extend(players_stats)
-
-            last_session = api_format.res_to_df(last_session, CONF)
-            last_session = api_format.format_df(last_session, CONF, LABELS)
-            last_session = api_format.augment_df(last_session, LABELS)
-
-            return last_session
-
-            # st.write("placeholder last session")
+            st.markdown("**Last Session Details**")
 
         # ----- Central part Sessions History (n sessions of n matches,  default= Battle Royale only ----
 
         st.markdown("**Sessions History**")
-        # initially we wanted to filter BR / non BR matches, but we now focus on BR matches only. No app rerun = less calls ;)
-        # st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
-        # mode_button = st.radio("", ("All modes","Battle Royale"))
-        # maybe test later : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
+        # initially we wanted to be able to filter BR / non BR matches, but no app rerun = less calls ;)
+        # Also cannot st.cache / experimental with async architecture
+        # TODO (maybe) : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
         # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
 
         # idea for future : save result in session state if doable, so we do not rerun auto except if we press search again
         # or firebase ;)
-        with st.spinner("Collecting match history..."):
-            matches = await getMoreMatchesDetailed(
+        with st.spinner("Collecting (BR) matches history..."):
+            matches = await GetMoreMatchesDetailed(
                 client,
                 platform_convert[selected_platform],
                 username,
@@ -235,7 +230,19 @@ async def main():
         # ask for our latest Battle Royale matches session
         # and inject them in the --previously-empty, container placed above
         with container_last_session:
-            last_session = await retrieve_last_br_session(last_br_ids)
+            # last_session = await retrieve_last_br_session(last_br_ids)
+            last_session = await GetMoreMatchStats(
+                client,
+                platform_convert[selected_platform],
+                username,
+                Title.ModernWarfare,
+                Mode.Warzone,
+                match_ids=last_br_ids,
+                n_max=8,
+            )
+            last_session = api_format.res_to_df(last_session, CONF)
+            last_session = api_format.format_df(last_session, CONF, LABELS)
+            last_session = api_format.augment_df(last_session, LABELS)
 
             teammates = session_details.get_session_teammates(last_session, gamertag)
             last_stats = session_details.stats_last_session(last_session, teammates)
