@@ -67,14 +67,16 @@ async def main():
 
     # App global config, Session States
 
+    # more config options see:
+    # https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
+    # Or demo Apps : https://streamlit.io/gallery
+
     st.set_page_config(
         page_title="Home",
         page_icon="👋",
         layout="centered",
         initial_sidebar_state="auto",
     )
-    # more config options see:
-    # https://docs.streamlit.io/library/advanced-features/configuration#set-configuration-options
 
     # title (logo)
     st.image("data/wzkd3.png", width=130)
@@ -91,13 +93,21 @@ async def main():
         # Search Player block
         st.subheader("Search Player")
         with st.form(key="loginForm"):
-            col1, col2 = st.columns((1, 2))
+            col1, col2 = st.columns((1, 1.5))
             with col1:
                 selected_platform = st.selectbox(
-                    "platform", ("Bnet", "Xbox", "Psn", "Acti")
+                    "platform",
+                    ("Bnet", "Xbox", "Psn", "Acti"),
+                    help=""" Platform must be set accordingly to the provided user ID.  
+                    I.e, user your Activision User ID is **not necessarily the same** as the one set by your preferred gaming platform (Bnet, Psn...) """,
                 )
             with col2:
-                username = st.text_input("username", "amadevs#1689")
+                username = st.text_input(
+                    "user ID",
+                    "amadevs#1689",
+                    help=""" Check your privacy settings on callofduty.com/cod/profile so the app can retrieve your stats.  
+                    Activision ID can be found in *Basic Info* and Psn/Bnet/xbox in *Linked Account*.""",
+                )
             submit_button = st.form_submit_button("submit")
 
             # when user is searched/logged-in we keep trace of him, through session_state
@@ -121,9 +131,15 @@ async def main():
         st.markdown("#")
         st.subheader("💁 **Getting Started** ")
         # might change, now uno/Activision seems to work
-        st.markdown(
-            "Enter your iD and your plateform on the sidebar menu. Note that your profile must be public so this app or other websites can track your stats. Your Activision ID can differ from in-game username, if you changed it in the past. You can retrieve it under in-game settings / Account"
-        )
+        started_text = """
+        👈 Enter your User ID and your platform on the sidebar menu.  
+        Your profile must be public so this app or other trackers can retrieve your stats.  
+        Go on callofduty.com/cod/profile, *"privacy settings"*, to opt in to "available to 3rd party".  
+        
+        Note that your User/Activision ID can differ from in-game username, if you changed it in the past.  
+        You can retrieve it under in-game settings for your gaming platform or callofduty.com *"basic info"* & *"Linked Accounts"* tabs.
+        """
+        st.markdown(started_text)
         st.markdown("#")
         st.subheader("👁‍🗨 **Hunder the Hood** ")
         st.markdown("Blabla")
@@ -135,6 +151,10 @@ async def main():
     # then we can go further and call COD API
 
     # if st.session_state.user:
+    # optional if not condition, but *might* be necessary when multipaging
+    if not submit_button:
+        st.stop()
+
     if submit_button:
         # flush temporary help/About
         placeholder_about.empty()

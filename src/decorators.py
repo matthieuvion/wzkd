@@ -22,7 +22,7 @@ def run_mode(func):
                 "GetMatchStats": CONF.get("APP_BEHAVIOR")["filename"]["match"],
                 "GetMoreMatchStats": CONF.get("APP_BEHAVIOR")["filename"]["match"],
                 "GetMatchesDetailed": CONF.get("APP_BEHAVIOR")["filename"]["matches"],
-                "getMoreMatchesDetailed": CONF.get("APP_BEHAVIOR")["filename"][
+                "GetMoreMatchesDetailed": CONF.get("APP_BEHAVIOR")["filename"][
                     "more_matches"
                 ],
                 "GetProfile": CONF.get("APP_BEHAVIOR")["filename"]["profile"],
