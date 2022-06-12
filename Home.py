@@ -73,18 +73,22 @@ async def main():
 
     st.set_page_config(
         page_title="Home",
-        page_icon="👋",
+        page_icon="🦊",
         layout="centered",
         initial_sidebar_state="auto",
     )
 
     # title (logo)
     st.image("data/wzkd3.png", width=130)
+    st.markdown(" ")
+    st.markdown(" ")
     # Probably later : add tooltip to 'search user here 👈 " and maybe "demo mode => offline"
 
     # For streamlit not to loop if a username is not entered & searched
     if "user" not in st.session_state:
         st.session_state.user = None
+    if "about" not in st.session_state:
+        st.session_state.about = None
 
     # Sidebar
 
@@ -126,23 +130,24 @@ async def main():
     # Temporary Home : App help / About
 
     placeholder_about = st.empty()
-    with placeholder_about.container():
-        # TODO better syntax and overall design + content
-        st.markdown("#")
-        st.subheader("💁 **Getting Started** ")
-        # might change, now uno/Activision seems to work
-        started_text = """
-        👈 Enter your User ID and your platform on the sidebar menu.  
-        Your profile must be public so this app or other trackers can retrieve your stats.  
-        Go on callofduty.com/cod/profile, *"privacy settings"*, to opt in to "available to 3rd party".  
-        
-        Note that your User/Activision ID can differ from in-game username, if you changed it in the past.  
-        You can retrieve it under in-game settings for your gaming platform or callofduty.com *"basic info"* & *"Linked Accounts"* tabs.
-        """
-        st.markdown(started_text)
-        st.markdown("#")
-        st.subheader("👁‍🗨 **Hunder the Hood** ")
-        st.markdown("Blabla")
+    if not st.session_state.about:
+        with placeholder_about.container():
+            # TODO better syntax and overall design + content
+            st.markdown("#")
+            st.subheader("**Getting Started**")
+            # might change, now uno/Activision seems to work
+            started_text = """
+            👈 Enter your User ID and your platform on the sidebar menu.  
+            Your profile must be public so this app or other trackers can retrieve your stats.  
+            If not, go to callofduty.com/cod/profile/ *"privacy settings"* tab and opt in to *"available to 3rd party"*.  
+            
+            Note that your User or Activision ID can differ from in-game username, notably if you changed it in the past. You can retrieve them under in-game settings for your gaming platform or callofduty.com *"basic info"* & *"Linked Accounts"* tabs.
+            """
+            st.markdown(started_text)
+            st.markdown("#")
+            st.subheader("**Hunder the Hood**")
+            st.markdown("...")
+
     # Central part
 
     # ----- Central part / Profile -----
@@ -158,6 +163,7 @@ async def main():
     if submit_button:
         # flush temporary help/About
         placeholder_about.empty()
+        st.session_state.about = 1
 
         client = await callofduty.Login(sso=os.environ["SSO"] or st.secrets("SSO"))
 
@@ -210,9 +216,11 @@ async def main():
         # initially we wanted to be able to filter BR / non BR matches, but no app rerun = less calls ;)
         # Also cannot st.cache / experimental with async architecture
         # TODO (maybe) : put a placeholder container above in code, and fill it with data, so when we update we replace and (maybe) not reload the
-        # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437
+        # whole app https://discuss.streamlit.io/t/how-to-build-a-real-time-live-dashboard-with-streamlit/24437 or :
 
         # idea for future : save result in session state if doable, so we do not rerun auto except if we press search again
+        # https://discuss.streamlit.io/t/how-to-save-the-displayed-dataframe-after-user-select-from-the-selectbox-using-st-session-state/14694/5
+        # a refresh button would reset its value (maybe stored in session_state as well)
         # or firebase ;)
         with st.spinner("Collecting (BR) matches history..."):
             matches = await GetMoreMatchesDetailed(
@@ -266,7 +274,7 @@ async def main():
 
             teammates = session_details.get_session_teammates(last_session, gamertag)
             last_stats = session_details.stats_last_session(last_session, teammates)
-            rendering.ag_render_last_session(last_stats, CONF)
+            rendering.render_last_session(last_stats, gamertag, CONF)
 
 
 if __name__ == "__main__":

@@ -9,24 +9,24 @@ from src import utils
 Inside
 ------
 Functions to render our Data nicely in Streamlit
-After many tests, we found out that best results (to us) would be :
+After many tests, we found out that best results would be :
 
-+ Overall good practices
++ Overall (personal xp) good practices
 --------
 
-- avoid the use of multi indexes df, else that would render with blank rows in App
+- tabular data : avoid multi indexes df that would render with blank rows in App (st or ag grid)
 - convert dtype datetime so they look prettier
-- tighten up columns/tables as much as possible
-- In the App itself, make use of container, st.columns etc.
+- tighten up columns/tables as much as possible to better fit in app layout
+- In the App itself, max use of layout elements : container, st.columns etc.
 
 + Render librairies
 --------
 
-- rendering tables/df with Streamlit Ag Grid : if you want advanced filters/interactivity or,
-- rendering tables/df  with Plotly tables : easier to use (e.g highlight cells) and fit nicer when using 
-- rendering charts with plotly (over vega lite and Co)
+- tabular data w/ Ag Grid : if you want advanced filters/interactivity or,
+- tabular data w/ Plotly tables : easier to use (e.g highlight cells) and fit nicer in layout (custom width)
+- rendering charts with plotly (over vega lite and Co), more help, more customization
 
-+ Maybe later
++ TODO/idea
 --------
 
 - try using Timeline component
@@ -86,7 +86,7 @@ def ag_render_session(df_session, CONF):
 
 
 def ag_render_last_session(last_stats, CONF):
-    """Rendering layer to last session, as a table"""
+    """Ag Grid rendering layer to last session stats, as a table"""
 
     # tighter our data(frame)
     last_stats["K D A"] = utils.concat_cols(
@@ -130,24 +130,90 @@ def ag_render_last_session(last_stats, CONF):
 
 
 """
-Rendering tables with Plotly, currently in use
+Rendering tables with Plotly, **currently in use**
 """
+
+
+def render_last_session(last_stats, gamertag, CONF):
+    """Plotly rendering layer to last session stats, as a table"""
+
+    # tighter our data(frame)
+    last_stats["K D A"] = utils.concat_cols(
+        last_stats, to_concat=["kills", "deaths", "assists"], sep=" | "
+    )
+    last_stats["Damage avg"] = utils.concat_cols(
+        last_stats, to_concat=["damageDone", "damageTaken"], sep=" | "
+    )
+    # Rename our columns according to CONF file
+    last_stats = last_stats.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
+
+    # Generate table with Plotly
+    colors = [
+        "#ffebf5" if username == gamertag else "white"
+        for username in last_stats["Player(s)"].tolist()
+    ]
+
+    fig = go.Figure(
+        data=[
+            go.Table(
+                columnwidth=[15, 8, 8, 8, 8],
+                header=dict(
+                    values=[
+                        "<b>Player(s)</b>",
+                        "<b>Matches</b>",
+                        "<b>KD</b>",
+                        "<b>K D A</b>",
+                        "<b>Gulag</b>",
+                    ],  # header cols names, rename here if wanted
+                    align=["left"],
+                    line_color="lightgrey",
+                    fill_color="#F0F2F6",
+                    font=dict(color="#767783", size=14),
+                    # style_header={"fontWeight": "bold"},
+                    height=30,
+                ),
+                cells=dict(
+                    values=[
+                        last_stats["Player(s)"],
+                        last_stats["Matches"],
+                        last_stats["KD"],
+                        last_stats["K D A"],
+                        last_stats["Gulag"],
+                    ],
+                    align="left",
+                    format=[
+                        "",
+                        "",
+                        ".2f",
+                        "",
+                        "",
+                    ],  # format columns values with d3 format
+                    fill_color=[colors],
+                    line_color="lightgrey",
+                    font=dict(color="#31333F", size=14),
+                    height=25,
+                ),
+            )
+        ]
+    )
+
+    # to narrow spaces between several figures / components
+    height = len(last_stats) * 30 + 35
+    fig.update_layout(width=600, height=height, margin=dict(l=1, r=0, b=0, t=1))
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def render_team(team_kills, gamertag):
     """Render Team KDA concat with Team Weapons, in a plotly table"""
 
-    team_kills = utils.shrink_df(
-        team_kills,
-        cols_to_concat=["Kills", "Deaths", "Assists"],
-        str_join=" | ",
-        new_col="K D A",
+    team_kills["K D A"] = utils.concat_cols(
+        team_kills, to_concat=["kills", "deaths", "assists"], sep=" | "
     )
     cols_to_concat = team_kills.columns[
         team_kills.columns.str.startswith("Loadout")
     ].tolist()
-    team_kills = utils.shrink_df(
-        team_kills, cols_to_concat, str_join=", ", new_col="Loadouts"
+    team_kills["Loadouts"] = utils.concat_cols(
+        team_kills, to_concat=cols_to_concat, str_join=", "
     )
 
     # team_info = pd.concat([team_kills, team_weapons], axis=1, sort=True)
@@ -196,17 +262,15 @@ def render_team(team_kills, gamertag):
 def render_players(players_kills):
     """Render Game top Kills players in a plotly table"""
 
-    players_kills = utils.shrink_df(
-        players_kills,
-        cols_to_concat=["Kills", "Deaths", "Assists"],
-        str_join=" | ",
-        new_col="K D A",
+    players_kills["K D A"] = utils.concat_cols(
+        players_kills, to_concat=["kills", "deaths", "assists"], sep=" | "
     )
+
     cols_to_concat = players_kills.columns[
         players_kills.columns.str.startswith("Loadout")
     ].tolist()
-    players_kills = utils.shrink_df(
-        players_kills, cols_to_concat, str_join=", ", new_col="Loadouts"
+    players_kills["K D A"] = utils.concat_cols(
+        players_kills, to_concat=cols_to_concat, sep=", "
     )
 
     players_kills = players_kills.rename(columns={"Username": "Player"})
