@@ -120,7 +120,7 @@ async def main():
             if username:
                 st.session_state.user = username
 
-        # TODO Navigation menu with option-menu or newer st multipages feature
+        # TODO Navigation menu with option-menu OR newer st multipages feature
         # menu = option_menu(
         #    " ",
         #    ["Home", "Settings"],
@@ -168,7 +168,7 @@ async def main():
 
         client = await callofduty.Login(sso=os.environ["SSO"] or st.secrets("SSO"))
 
-        # User Profile block
+        # User Search-Profile block
         st.markdown("**Profile**")
 
         profile = await client.GetProfile(
@@ -184,6 +184,7 @@ async def main():
         lifetime_kd = profile_kpis["br_kd"]
         lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
 
+        # render user profile metrics using st.metrics, in a 5 columns layout
         with st.expander(username, True):
             col21, col22, col23, col24, col25 = st.columns((0.5, 0.6, 0.6, 0.6, 0.6))
             with col21:
@@ -206,7 +207,7 @@ async def main():
         # ----- Central part / last Session Stats (if Battle Royale matches in our Sessions history) Scorecard -----
 
         # final layout tbc : empty() vs. container()
-        # This container will be filled after matches history + last session match ids data collection
+        # The containers will later be filled with charts/tables once we collected our matches history, gamertag, ids...
         container_kd_history = st.container()
         container_last_session = st.container()
         with container_kd_history:
@@ -241,22 +242,28 @@ async def main():
             matches = api_format.res_to_df(matches, CONF)
             matches = api_format.format_df(matches, CONF, LABELS)
             matches = api_format.augment_df(matches, LABELS)
+
+            # In-game user' gamertag can be different from Profile, keep trace of it to personify our app
             gamertag = utils.get_gamertag(matches)
+
+            # Cannot filter BR matches when requesting COD API, we're doing it afterwards if "true" in CONF
+            matches = utils.br_only(matches, CONF, LABELS)
 
             # 1.b Reshape our matches to a "sessions history" (gap between 2 consecutive matches > 1 hour)
             # 1.c Perform stats aggregations for each session
             df_sessions_history = sessions_history.to_history(matches, CONF, LABELS)
-            sessions_history_stats = sessions_history.stats_per_session(
+            stats_sessions_history = sessions_history.stats_per_session(
                 df_sessions_history
             )
-            # 1.d Extract the last matches Ids from our last session, later we will request the API for more detailed stats
+            # 1.d Extract the last matches ids from our last session, later we will request the API for more detailed stats
             last_session_br_ids = utils.get_last_br_ids(df_sessions_history, LABELS)
 
             # 1.e Render each session (a list of matches within a certain timespan) and their stats in a stacked-two-columns layout
+            # It's better to avoid rendering multi indexes tables in St, so we split them given their session idx
             sessions_indexes = df_sessions_history.session.unique().tolist()
             history_grouped = df_sessions_history.groupby("session")
             for idx in sessions_indexes:
-                dict_ = sessions_history_stats.get(idx)
+                dict_ = stats_sessions_history.get(idx)
                 df_session = history_grouped.get_group(idx)
                 col1, col2 = st.columns((0.2, 0.8))
                 with col1:
@@ -265,8 +272,8 @@ async def main():
                     rendering.ag_render_session(df_session, CONF)
             # st.markdown("---")
 
-        # 2.a Request COD API for detailed stats of last session's matches and reshape-augment API response
-        # 2.b Results are displayed above "sessions history" in a previously created st.container()
+        # 2.a Request COD API for detailed stats of last session's matches and reshape-augment the API response
+        # 2.b render "sessions history" in a previously-created-above st.container()
         with container_last_session:
             last_session = await GetMoreMatchStats(
                 client,
@@ -285,7 +292,7 @@ async def main():
             last_stats = session_details.stats_last_session(last_session, teammates)
             rendering.render_last_session(last_stats, gamertag, CONF)
 
-        # 3. kd history chart
+        # 3. render kd history chart(s) in a previously-created-above st.container()
         with container_kd_history:
 
             df_kd = kd_history.to_history(matches)
