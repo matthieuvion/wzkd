@@ -8,24 +8,9 @@ import numpy as np
 import toml
 import json
 
-
-# CONF utils
-
 import streamlit as st
 
-
-def load_labels_save(file="src/wz_labels.json"):
-    """--> dict, with data needed to parse weapons, games modes etc."""
-    with open(file) as f:
-        LABELS = json.load(f)
-    return LABELS
-
-
-def load_conf_save(file="src/conf.toml"):
-    """--> dict, overall app config : run in offline mode, display Battle Royale games only etc."""
-    with open(file) as f:
-        CONF = toml.load(f)
-    return CONF
+# CONF utils
 
 
 def load_labels():
@@ -52,6 +37,16 @@ def load_conf():
     with open(filepath) as f:
         CONF = toml.load(f)
     return CONF
+
+
+def br_only(df, CONF, LABELS):
+    """Keep 'legacy' Battle Royale matches only, from (processed) COD API result"""
+
+    # check if mode activated in CONF
+    if CONF.get("APP_BEHAVIOR")["br_only"]:
+        return df[df["mode"].isin(list(LABELS.get("modes")["battle_royale"].values()))]
+    else:
+        return df
 
 
 # Retrieve ids, names, dates...

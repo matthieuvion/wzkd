@@ -39,22 +39,3 @@ def run_mode(func):
         return result
 
     return wrapper
-
-
-def br_only(func):
-    """Decorator that checks if "br_only" mode is activated in our conf (True by default)
-    If so, remove matches that are not of mode 'Battle Royale' from matches result
-    """
-    CONF = utils.load_conf()
-    LABELS = utils.load_labels()
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        if CONF.get("APP_BEHAVIOR")["br_only"]:
-            result = result[
-                result["mode"].isin(list(LABELS.get("modes")["battle_royale"].values()))
-            ]
-        return result
-
-    return wrapper

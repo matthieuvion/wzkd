@@ -1,5 +1,4 @@
 import pandas as pd
-from src.decorators import br_only
 
 
 """ 
@@ -21,9 +20,8 @@ def add_sessions(df):
     return df
 
 
-@br_only
 def to_core(df, CONF):
-    """Retain core data (columns) only, remove non Battle Royale Matches if told so (@decorator)"""
+    """Retain core data (columns) only"""
 
     cols = CONF.get("APP_DISPLAY").get("cols")["sessions_history"]
     if "session" in df.columns.tolist():

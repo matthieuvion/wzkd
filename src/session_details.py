@@ -35,7 +35,7 @@ def stats_last_session(last_session, teammates):
         "damageDone": "mean",
         "damageTaken": "mean",
         "gulagStatus": lambda x: (x.eq("W").sum() / x.isin(["W", "L"]).sum())
-        if x.eq("W").sum() > 0
+        if x.eq("W").sum() > 0  # -_-
         else 0,
     }
 

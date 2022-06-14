@@ -132,7 +132,7 @@ async def GetMatchesDetailed(
      - default number of matches returned is now 20 (max allowed by the API) instead of 10
      - added @backoff decorator to handle (some of) API rate/availability limits
     """
-    limit: int = kwargs.get("limit", 10)
+    limit: int = kwargs.get("limit", 20)
     startTimestamp: int = kwargs.get("startTimestamp", 0)
     endTimestamp: int = kwargs.get("endTimestamp", 0)
 
@@ -166,7 +166,7 @@ async def GetMoreMatchesDetailed(client, platform, username, title, mode, **kwar
     all_batchs = []
     endTimestamp = 0
 
-    while count_br_matches < min_br_matches:
+    while count_br_matches <= min_br_matches:
         batch_20 = await client.GetMatchesDetailed(
             platform, username, title, mode, endTimestamp=endTimestamp
         )
