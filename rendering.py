@@ -167,7 +167,7 @@ def render_last_session(last_stats, gamertag, CONF):
                     ],  # header cols names, rename here if wanted
                     align=["left"],
                     line_color="lightgrey",
-                    fill_color="#F0F2F6",
+                    fill_color="#F5F7F7",
                     font=dict(color="#767783", size=14),
                     # style_header={"fontWeight": "bold"},
                     height=30,
@@ -311,7 +311,7 @@ def render_players(players_kills):
 
 
 """
-Other types of rendering
+Misc streamlit "hacky-iiiish" ways to display data
 """
 
 
@@ -337,6 +337,92 @@ def render_session_stats(dict_):
 """
 Rendering charts with Plotly
 """
+
+
+def render_kd_history(kd_history):
+    """Render KD and Cumulative KD of last matches"""
+
+    labels = ["KD", " KD Cum. Avg"]
+    colors = ["rgb(204, 204, 204)", "rgb(230,10,120)"]
+
+    mode_size = [12, 8]  # node size
+    line_size = [1, 3]
+
+    fig = go.Figure()
+
+    # lines
+    # raw kd ratio
+    fig.add_trace(
+        go.Scatter(
+            x=kd_history.index,
+            y=kd_history["kdRatio"],
+            mode="lines",
+            name=labels[0],
+            line=dict(color=colors[0], width=line_size[0]),
+            connectgaps=True,
+        )
+    )
+    # cum avg kd ratio
+    fig.add_trace(
+        go.Scatter(
+            x=kd_history.index,
+            y=kd_history["kdRatioCumAvg"],
+            mode="lines",
+            name=labels[1],
+            line=dict(color=colors[1], width=line_size[1]),
+            connectgaps=True,
+        )
+    )
+
+    fig.update_layout(
+        xaxis=dict(
+            showline=True,
+            showgrid=False,
+            showticklabels=True,
+            linecolor="rgb(204, 204, 204)",  # x axis line gris clair
+            linewidth=2,
+            ticks="outside",
+            tickfont=dict(
+                family="Arial",
+                size=12,
+                color="rgb(82, 82, 82)",  # x axis ticks-text gris foncé
+            ),
+        ),
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
+        ),
+        autosize=False,
+        margin=dict(
+            autoexpand=False,
+            l=0,
+            r=0,
+            t=0,  # top margin
+        ),
+        showlegend=False,
+        plot_bgcolor="white",
+    )
+
+    annotations = []
+    # Source
+    annotations.append(
+        dict(
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=-0.1,
+            xanchor="center",
+            yanchor="top",
+            text="Last Battle Royale matches",
+            font=dict(family="Arial", size=12, color="rgb(150,150,150)"),
+            showarrow=False,
+        )
+    )
+
+    fig.update_layout(annotations=annotations)
+    st.plotly_chart(fig, use_container_width=False)
 
 
 def render_bullet_chart(

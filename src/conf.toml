@@ -48,7 +48,7 @@ ts_cols = [
     ]
 
 [APP_DISPLAY]
-cols.history = [
+cols.sessions_history = [
     "utcStartSeconds",
     "utcEndSeconds",
     "matchID",
@@ -61,6 +61,15 @@ cols.history = [
     "gulagStatus",
     "loadout_1"
     ]
+
+cols.kd_history = [
+    "utcStartSeconds",
+    "kdRatio",
+    "kdRatioCumAvg",
+    "kills",
+    "killsCumAvg",
+
+]
 
 cols.match = []
 cols.matches = []

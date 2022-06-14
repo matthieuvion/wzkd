@@ -19,6 +19,7 @@ from src import (
     api_format,
     match_details,
     sessions_history,
+    kd_history,
     profile_details,
     session_details,
 )
@@ -206,7 +207,10 @@ async def main():
 
         # final layout tbc : empty() vs. container()
         # This container will be filled after matches history + last session match ids data collection
+        container_kd_history = st.container()
         container_last_session = st.container()
+        with container_kd_history:
+            st.markdown("**KD ratio History**")
         with container_last_session:
             st.markdown("**Last Session Details**")
 
@@ -222,6 +226,8 @@ async def main():
         # https://discuss.streamlit.io/t/how-to-save-the-displayed-dataframe-after-user-select-from-the-selectbox-using-st-session-state/14694/5
         # a refresh button would reset its value (maybe stored in session_state as well)
         # or firebase ;)
+
+        # 1.a get matches history and format COD API response. Extract User's gamertag from result
         with st.spinner("Collecting (BR) matches history..."):
             matches = await GetMoreMatchesDetailed(
                 client,
@@ -233,20 +239,24 @@ async def main():
             )
             # TODO :(more) error handling in case of API failure ...if matches... :
             matches = api_format.res_to_df(matches, CONF)
-            gamertag = utils.get_gamertag(matches)
-
             matches = api_format.format_df(matches, CONF, LABELS)
             matches = api_format.augment_df(matches, LABELS)
-            history = sessions_history.to_history(matches, CONF, LABELS)
+            gamertag = utils.get_gamertag(matches)
 
-            sessions_stats = sessions_history.stats_per_session(history)
-            last_br_ids = utils.get_last_br_ids(history, LABELS)
+            # 1.b Reshape our matches to a "sessions history" (gap between 2 consecutive matches > 1 hour)
+            # 1.c Perform stats aggregations for each session
+            df_sessions_history = sessions_history.to_history(matches, CONF, LABELS)
+            sessions_history_stats = sessions_history.stats_per_session(
+                df_sessions_history
+            )
+            # 1.d Extract the last matches Ids from our last session, later we will request the API for more detailed stats
+            last_session_br_ids = utils.get_last_br_ids(df_sessions_history, LABELS)
 
-            # render each session (a list of matches within a timespan) and their stats in a stacked-two-columns layout
-            sessions_indexes = history.session.unique().tolist()
-            history_grouped = history.groupby("session")
+            # 1.e Render each session (a list of matches within a certain timespan) and their stats in a stacked-two-columns layout
+            sessions_indexes = df_sessions_history.session.unique().tolist()
+            history_grouped = df_sessions_history.groupby("session")
             for idx in sessions_indexes:
-                dict_ = sessions_stats.get(idx)
+                dict_ = sessions_history_stats.get(idx)
                 df_session = history_grouped.get_group(idx)
                 col1, col2 = st.columns((0.2, 0.8))
                 with col1:
@@ -255,17 +265,16 @@ async def main():
                     rendering.ag_render_session(df_session, CONF)
             # st.markdown("---")
 
-        # ask for our latest Battle Royale matches session
-        # and inject them in the --previously-empty, container placed above
+        # 2.a Request COD API for detailed stats of last session's matches and reshape-augment API response
+        # 2.b Results are displayed above "sessions history" in a previously created st.container()
         with container_last_session:
-            # last_session = await retrieve_last_br_session(last_br_ids)
             last_session = await GetMoreMatchStats(
                 client,
                 platform_convert[selected_platform],
                 username,
                 Title.ModernWarfare,
                 Mode.Warzone,
-                match_ids=last_br_ids,
+                match_ids=last_session_br_ids,
                 n_max=8,
             )
             last_session = api_format.res_to_df(last_session, CONF)
@@ -276,8 +285,12 @@ async def main():
             last_stats = session_details.stats_last_session(last_session, teammates)
             rendering.render_last_session(last_stats, gamertag, CONF)
 
+        # 3. kd history chart
+        with container_kd_history:
+
+            df_kd = kd_history.to_history(matches)
+            rendering.render_kd_history(df_kd)
+
 
 if __name__ == "__main__":
-    # loop = asyncio.new_event_loop()
-    # loop.run_until_complete(main())
     asyncio.run(main())
