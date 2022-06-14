@@ -1,6 +1,16 @@
 import itertools
 
 
+""" 
+Inside
+------
+Aggregate detailed stats for a session of matches, here our last matches played.
+
+- Before that we collected a list of matches ids, username, and collected detailed stats for thoses ids.
+- Also our API output (detailed matches stats) was already converted to a df, flattened and formated to be readable / operable (using api_format module)
+"""
+
+
 def get_session_teammates(last_session, gamertag):
     """Get list of teammates from your last session of BR matches"""
     ids = last_session.query("username == @gamertag")["matchID"].tolist()

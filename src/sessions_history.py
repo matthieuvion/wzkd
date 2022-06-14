@@ -5,11 +5,12 @@ from src.decorators import br_only
 """ 
 Inside
 ------
-Matches :
-- Output was already converted to a df, flattened and formated to be readable / operable
-- Convert (list of) matches to (list of) matches per session
+Shape our matches stats history as a session(s) history with aggregated stats per session.
+
+- Before that, ou API output (matches history) was already converted to a df, flattened and formated to be readable / operable (using api_format module)
+- We define a session as one or several consecutive matches when idle time between two consecutives match is > 1 hour
 - Perform data aggregations per session
-- Send back this transformed data to Streamlit where we will eventually apply our rendering tweaks
+- The transformed data will then be displayed in Streamlit where we will eventually apply our rendering tweaks
 """
 
 
@@ -24,7 +25,7 @@ def add_sessions(df):
 def to_core(df, CONF):
     """Retain core data (columns) only, remove non Battle Royale Matches if told so (@decorator)"""
 
-    cols = CONF.get("APP_DISPLAY").get("cols")["history"]
+    cols = CONF.get("APP_DISPLAY").get("cols")["sessions_history"]
     if "session" in df.columns.tolist():
         keep_cols = ["session"]  # prevent modifying CONF recursively
         keep_cols.extend(cols)
@@ -35,13 +36,13 @@ def to_core(df, CONF):
 
 
 def to_history(df, CONF, LABELS):
-    """Pipe the functions above to get our desired matches history"""
-    history = df.pipe(add_sessions).pipe(to_core, CONF)
+    """Pipe the functions above to get our desired sessions history"""
+    df = df.pipe(add_sessions).pipe(to_core, CONF)
 
-    return history
+    return df
 
 
-def stats_per_session(history):
+def stats_per_session(df):
     """Calculation of aggregated KPIs (kill/death ratio, gulag win ratio etc..) per session
 
     Will later be rendered in our Streamlit App along side of every session (of n matches)
@@ -77,9 +78,7 @@ def stats_per_session(history):
         else 0,
     }
 
-    agg_history = (
-        history.groupby("session").agg(aggregations).rename(columns={"mode": "played"})
-    )
-    agg_history["kdRatio"] = agg_history.kills / agg_history.deaths
+    df = df.groupby("session").agg(aggregations).rename(columns={"mode": "played"})
+    df["kdRatio"] = df.kills / df.deaths
 
-    return agg_history.to_dict(orient="index")
+    return df.to_dict(orient="index")
