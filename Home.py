@@ -111,7 +111,7 @@ async def main():
                     "user ID",
                     "amadevs#1689",
                     help=""" Check your privacy settings on callofduty.com/cod/profile so the app can retrieve your stats.  
-                    Activision ID can be found in *Basic Info* and Psn/Bnet/xbox in *Linked Account*.""",
+                    Activision ID can be found in *Basic Info* and Psn/Bnet/xbox IDs in *Linked Account*.""",
                 )
             submit_button = st.form_submit_button("submit")
 
@@ -157,7 +157,7 @@ async def main():
     # then we can go further and call COD API
 
     # if st.session_state.user:
-    # optional if not condition, but *might* be necessary when multipaging
+    # tmp/optional if not condition, but *might* be necessary when multipaging
     if not submit_button:
         st.stop()
 
@@ -211,7 +211,7 @@ async def main():
         container_kd_history = st.container()
         container_last_session = st.container()
         with container_kd_history:
-            st.markdown("**KD ratio History**")
+            st.markdown("**Battle Royale Stats History**")
         with container_last_session:
             st.markdown("**Last Session Details**")
 
@@ -296,7 +296,20 @@ async def main():
         with container_kd_history:
 
             df_kd = kd_history.to_history(matches)
+
+            st.caption("Kills/Deaths cum & rolling avg")
             rendering.render_kd_history(df_kd)
+
+            col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
+            with col1:
+                st.caption("Kills/game cum. avg")
+                rendering.render_kills_history(df_kd)
+            with col2:
+                st.caption("Damage/game cum. avg")
+                rendering.render_damage_history(df_kd)
+            with col3:
+                st.caption("Gulag cum. % Win")
+                rendering.render_gulag_history(df_kd)
 
 
 if __name__ == "__main__":
