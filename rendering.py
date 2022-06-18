@@ -384,7 +384,7 @@ def render_kd_history(df):
             showgrid=False,
             showticklabels=True,
             linecolor="rgb(204, 204, 204)",  # x axis line gris clair
-            linewidth=2,
+            linewidth=1,
             ticks="outside",
             tickfont=dict(
                 family="Arial",
@@ -403,15 +403,27 @@ def render_kd_history(df):
         height=300,
         margin=dict(
             autoexpand=False,
-            l=20,
-            r=20,
-            t=20,  # top margin
+            l=0,
+            r=0,
+            t=0,  # top margin
         ),
-        showlegend=False,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=0.8,
+            xanchor="left",
+            x=0.7,
+            font=dict(size=13),
+        ),
         plot_bgcolor="white",
     )
 
     annotations = []
+
+    # styling : see https://plotly.com/python/text-and-annotations/#text-annotations
+    # just x, y if you want to annotate a particular data point
+
     # Source (under x axis)
     annotations.append(
         dict(
@@ -427,19 +439,19 @@ def render_kd_history(df):
         )
     )
     # title (not a true plotly chart title "title=", but an annotation 'emulating' a title)
-    # annotations.append(
-    #    dict(
-    #        xref="paper",
-    #        yref="paper",
-    #        x=0.0,
-    #        y=1.05,
-    #        xanchor="left",
-    #        yanchor="bottom",
-    #        text="kills/death ratio cumulative Avg",
-    #        font=dict(family="Arial", size=20, color="rgb(37,37,37)"),
-    #        showarrow=False,
-    #    )
-    # )
+    annotations.append(
+        dict(
+            xref="paper",
+            yref="paper",
+            x=1,
+            y=1,
+            xanchor="auto",
+            yanchor="auto",
+            text=f"KD: {round(df['kdRatioCumAvg'].iat[-1],2)}",
+            font=dict(family="Arial", size=16, color="rgb(37,37,37)"),
+            showarrow=False,
+        )
+    )
 
     fig.update_layout(annotations=annotations)
     st.plotly_chart(
@@ -479,7 +491,7 @@ def render_kd_history_small(df, idx):
             showgrid=False,
             showticklabels=True,
             linecolor="rgb(204, 204, 204)",  # x axis line gris clair
-            linewidth=2,
+            linewidth=1,
             ticks="outside",
             tickfont=dict(
                 family="Arial",
@@ -495,7 +507,7 @@ def render_kd_history_small(df, idx):
         ),
         autosize=False,
         width=400,
-        height=250,
+        height=230,
         margin=dict(
             autoexpand=False,
             l=0,
@@ -518,6 +530,20 @@ def render_kd_history_small(df, idx):
             yanchor="top",
             text="n last Battle Royale matches",
             font=dict(family="Arial", size=11, color="rgb(150,150,150)"),
+            showarrow=False,
+        )
+    )
+    # title (not a true plotly chart title "title=", but an annotation 'emulating' a title)
+    annotations.append(
+        dict(
+            xref="paper",
+            yref="paper",
+            x=1,
+            y=1,
+            xanchor="auto",
+            yanchor="auto",
+            text=f"{labels[idx]}: {round(df[y_axis[idx]].iat[-1],2)}",
+            font=dict(family="Arial", size=13, color="rgb(37,37,37)"),
             showarrow=False,
         )
     )

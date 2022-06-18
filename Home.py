@@ -189,7 +189,7 @@ async def main():
                 col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
                 with col1:
                     st.metric(
-                        label="% br",
+                        label="% mode br",
                         value=f"{profile_kpis['competitive_ratio']}%",
                     )
                 with col2:
