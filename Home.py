@@ -128,7 +128,7 @@ async def main():
         #    menu_icon="cast",
         #    default_index=1,
 
-    # Temporary Home : App help / About
+        # Temporary Home : App help / About
 
     placeholder_about = st.empty()
     if not st.session_state.about:
@@ -149,10 +149,6 @@ async def main():
             st.subheader("**Hunder the Hood**")
             st.markdown("...")
 
-    # Central part
-
-    # ----- Central part / Profile -----
-
     # If our user is already searched (session_state['user'] is not None anymore),
     # then we can go further and call COD API
 
@@ -166,10 +162,8 @@ async def main():
         placeholder_about.empty()
         st.session_state.about = 1
 
+        # API credentials stored either locally or server side (share.streamlit.io)
         client = await callofduty.Login(sso=os.environ["SSO"] or st.secrets("SSO"))
-
-        # User Search-Profile block
-        st.markdown("**Profile**")
 
         profile = await client.GetProfile(
             platform_convert[selected_platform],
@@ -184,25 +178,25 @@ async def main():
         lifetime_kd = profile_kpis["br_kd"]
         lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
 
-        # render user profile metrics using st.metrics, in a 5 columns layout
-        with st.expander(username, True):
-            col21, col22, col23, col24, col25 = st.columns((0.5, 0.6, 0.6, 0.6, 0.6))
-            with col21:
-                st.metric(label="SEASON LVL", value=profile_kpis["level"])
-            with col22:
-                st.metric(label="MATCHES", value=profile_kpis["matches_count_all"])
-            with col23:
-                st.metric(
-                    label="% BR matchs",
-                    value=f"{profile_kpis['competitive_ratio']}%",
-                )
-            with col24:
-                st.metric(label="K/D RATIO (BR)", value=lifetime_kd)
-            with col25:
-                st.metric(label="Kills / Match (BR)", value=lifetime_kills_ratio)
-            st.caption(
-                "Matches: lifetime matches all WZ modes, % Battle Royale matches / all matches, K/D ratio : BR Kills / Deaths"
-            )
+        # User Profile in sidebar below search block
+        with st.sidebar:
+            st.subheader("Profile")
+
+            with st.expander(
+                f"{username} | lvl {profile_kpis['level']} | {profile_kpis['matches_count_all']} matches",
+                True,
+            ):
+                col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
+                with col1:
+                    st.metric(
+                        label="% br",
+                        value=f"{profile_kpis['competitive_ratio']}%",
+                    )
+                with col2:
+                    st.metric(label="k/d br", value=lifetime_kd)
+
+                with col3:
+                    st.metric(label="kills avg br", value=lifetime_kills_ratio)
 
         # ----- Central part / last Session Stats (if Battle Royale matches in our Sessions history) Scorecard -----
 
@@ -296,20 +290,15 @@ async def main():
         with container_kd_history:
 
             df_kd = kd_history.to_history(matches)
-
-            st.caption("Kills/Deaths cum & rolling avg")
             rendering.render_kd_history(df_kd)
 
             col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
             with col1:
-                st.caption("Kills/game cum. avg")
-                rendering.render_kills_history(df_kd)
+                rendering.render_kd_history_small(df_kd, idx=0)
             with col2:
-                st.caption("Damage/game cum. avg")
-                rendering.render_damage_history(df_kd)
+                rendering.render_kd_history_small(df_kd, idx=1)
             with col3:
-                st.caption("Gulag cum. % Win")
-                rendering.render_gulag_history(df_kd)
+                rendering.render_kd_history_small(df_kd, idx=2)
 
 
 if __name__ == "__main__":

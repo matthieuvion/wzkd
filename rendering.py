@@ -1,3 +1,4 @@
+from tkinter import Y
 import streamlit as st
 import plotly.graph_objects as go
 from st_aggrid import AgGrid, GridOptionsBuilder
@@ -341,9 +342,10 @@ Rendering charts with Plotly
 """
 
 
-def render_kd_history(kd_history):
+def render_kd_history(df):
     """Render KD and Cumulative KD of last matches"""
 
+    y_axis = ["kdRatioRollAvg", "kdRatioCumAvg"]
     labels = ["Mov. Avg (2)", "Cum. Avg"]
     colors = ["rgb(204, 204, 204)", "rgb(230,10,120)"]
 
@@ -351,13 +353,14 @@ def render_kd_history(kd_history):
     line_size = [1, 3]
 
     fig = go.Figure()
+    config = {"displayModeBar": False}  # remove modebar (produced with plotly etc.)
 
     # lines
     # raw kd ratio
     fig.add_trace(
         go.Scatter(
-            x=kd_history.index,
-            y=kd_history["kdRatioRollAvg"],
+            x=df.index,
+            y=df[y_axis[0]],
             mode="lines",
             name=labels[0],
             line=dict(color=colors[0], width=line_size[0]),
@@ -367,8 +370,8 @@ def render_kd_history(kd_history):
     # cum avg kd ratio
     fig.add_trace(
         go.Scatter(
-            x=kd_history.index,
-            y=kd_history["kdRatioCumAvg"],
+            x=df.index,
+            y=df[y_axis[1]],
             mode="lines",
             name=labels[1],
             line=dict(color=colors[1], width=line_size[1]),
@@ -427,29 +430,31 @@ def render_kd_history(kd_history):
 
     fig.update_layout(annotations=annotations)
     st.plotly_chart(
-        fig, use_container_width=True
+        fig, use_container_width=True, config=config
     )  # True if you wantr to bypass width setting
 
 
-def render_gulag_history(kd_history):
+def render_kd_history_small(df, idx):
     """Render KD and Cumulative KD of last matches"""
 
-    labels = ["Cum. Win Pct"]
+    y_axis = ["killsCumAvg", "damageDoneCumAvg", "gulagWinPct"]
+    labels = ["Avg kills", "Avg damage", "Gulag Win"]
     colors = ["darkgrey"]
 
     mode_size = [8]  # node size
     line_size = [2]
 
     fig = go.Figure()
+    config = {"displayModeBar": False}
 
     # lines
     # cumulative win pct
     fig.add_trace(
         go.Scatter(
-            x=kd_history.index,
-            y=kd_history["gulagWinPct"],
+            x=df.index,
+            y=df[y_axis[idx]],
             mode="lines",
-            name=labels[0],
+            name=labels[idx],
             line=dict(color=colors[0], width=line_size[0]),
             connectgaps=True,
         )
@@ -506,165 +511,7 @@ def render_gulag_history(kd_history):
 
     fig.update_layout(annotations=annotations)
     st.plotly_chart(
-        fig, use_container_width=True
-    )  # True if you wantr to bypass width setting
-
-
-def render_damage_history(kd_history):
-    """Render KD and Cumulative KD of last matches"""
-
-    labels = ["Cum. Damage Avg"]
-    colors = ["darkgrey"]
-
-    mode_size = [8]  # node size
-    line_size = [2]
-
-    fig = go.Figure()
-
-    # lines
-    # cumulative win pct
-    fig.add_trace(
-        go.Scatter(
-            x=kd_history.index,
-            y=kd_history["damageDoneCumAvg"],
-            mode="lines",
-            name=labels[0],
-            line=dict(color=colors[0], width=line_size[0]),
-            connectgaps=True,
-        )
-    )
-
-    fig.update_layout(
-        xaxis=dict(
-            showline=True,
-            showgrid=False,
-            showticklabels=True,
-            linecolor="rgb(204, 204, 204)",  # x axis line gris clair
-            linewidth=2,
-            ticks="outside",
-            tickfont=dict(
-                family="Arial",
-                size=10,
-                color="rgb(82, 82, 82)",  # x axis ticks-text gris foncé
-            ),
-        ),
-        yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showline=False,
-            showticklabels=False,
-        ),
-        autosize=False,
-        width=400,
-        height=250,
-        margin=dict(
-            autoexpand=False,
-            l=0,
-            r=0,
-            t=0,  # top margin
-        ),
-        showlegend=False,
-        plot_bgcolor="white",
-    )
-
-    annotations = []
-    # Source
-    annotations.append(
-        dict(
-            xref="paper",
-            yref="paper",
-            x=0.5,
-            y=-0.1,
-            xanchor="center",
-            yanchor="top",
-            text="n last Battle Royale matches",
-            font=dict(family="Arial", size=11, color="rgb(150,150,150)"),
-            showarrow=False,
-        )
-    )
-
-    fig.update_layout(annotations=annotations)
-    st.plotly_chart(
-        fig, use_container_width=True
-    )  # True if you wantr to bypass width setting
-
-
-def render_kills_history(kd_history):
-    """Render kills avg of last matches"""
-
-    labels = ["Cum. kills Avg"]
-    colors = ["darkgrey"]
-
-    mode_size = [8]  # node size
-    line_size = [2]
-
-    fig = go.Figure()
-
-    # lines
-    # cumulative win pct
-    fig.add_trace(
-        go.Scatter(
-            x=kd_history.index,
-            y=kd_history["killsCumAvg"],
-            mode="lines",
-            name=labels[0],
-            line=dict(color=colors[0], width=line_size[0]),
-            connectgaps=True,
-        )
-    )
-
-    fig.update_layout(
-        xaxis=dict(
-            showline=True,
-            showgrid=False,
-            showticklabels=True,
-            linecolor="rgb(204, 204, 204)",  # x axis line gris clair
-            linewidth=2,
-            ticks="outside",
-            tickfont=dict(
-                family="Arial",
-                size=10,
-                color="rgb(82, 82, 82)",  # x axis ticks-text gris foncé
-            ),
-        ),
-        yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showline=False,
-            showticklabels=False,
-        ),
-        autosize=False,
-        width=400,
-        height=250,
-        margin=dict(
-            autoexpand=False,
-            l=0,
-            r=0,
-            t=0,  # top margin
-        ),
-        showlegend=False,
-        plot_bgcolor="white",
-    )
-
-    annotations = []
-    # Source
-    annotations.append(
-        dict(
-            xref="paper",
-            yref="paper",
-            x=0.5,
-            y=-0.1,
-            xanchor="center",
-            yanchor="top",
-            text="kills avg",
-            font=dict(family="Arial", size=11, color="rgb(150,150,150)"),
-            showarrow=False,
-        )
-    )
-
-    fig.update_layout(annotations=annotations)
-    st.plotly_chart(
-        fig, use_container_width=True
+        fig, use_container_width=True, config=config
     )  # True if you wantr to bypass width setting
 
 
