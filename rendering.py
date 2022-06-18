@@ -1,4 +1,3 @@
-from tkinter import Y
 import streamlit as st
 import plotly.graph_objects as go
 from st_aggrid import AgGrid, GridOptionsBuilder
@@ -404,16 +403,16 @@ def render_kd_history(df):
         height=300,
         margin=dict(
             autoexpand=False,
-            l=0,
-            r=0,
-            t=0,  # top margin
+            l=20,
+            r=20,
+            t=20,  # top margin
         ),
         showlegend=False,
         plot_bgcolor="white",
     )
 
     annotations = []
-    # Source
+    # Source (under x axis)
     annotations.append(
         dict(
             xref="paper",
@@ -427,6 +426,20 @@ def render_kd_history(df):
             showarrow=False,
         )
     )
+    # title (not a true plotly chart title "title=", but an annotation 'emulating' a title)
+    # annotations.append(
+    #    dict(
+    #        xref="paper",
+    #        yref="paper",
+    #        x=0.0,
+    #        y=1.05,
+    #        xanchor="left",
+    #        yanchor="bottom",
+    #        text="kills/death ratio cumulative Avg",
+    #        font=dict(family="Arial", size=20, color="rgb(37,37,37)"),
+    #        showarrow=False,
+    #    )
+    # )
 
     fig.update_layout(annotations=annotations)
     st.plotly_chart(
