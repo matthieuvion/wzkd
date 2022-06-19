@@ -344,8 +344,8 @@ Rendering charts with Plotly
 def render_kd_history(df):
     """Render KD and Cumulative KD of last matches"""
 
-    y_axis = ["kdRatioRollAvg", "kdRatioCumAvg"]
-    labels = ["Mov. Avg (2)", "Cum. Avg"]
+    y_axis = ["kdRatioRollAvg", "kdRatioCum"]
+    labels = ["Mov. avg (5)", "cumulative"]
     colors = ["rgb(204, 204, 204)", "rgb(230,10,120)"]
 
     mode_size = [12, 8]  # node size
@@ -400,7 +400,7 @@ def render_kd_history(df):
         ),
         autosize=False,
         width=400,
-        height=300,
+        height=280,
         margin=dict(
             autoexpand=False,
             l=0,
@@ -447,8 +447,12 @@ def render_kd_history(df):
             y=1,
             xanchor="auto",
             yanchor="auto",
-            text=f"KD: {round(df['kdRatioCumAvg'].iat[-1],2)}",
-            font=dict(family="Arial", size=16, color="rgb(37,37,37)"),
+            text=f"k/d: {round(df['kdRatioCum'].iat[-1],2)}",
+            bgcolor="rgb(230,10,120)",
+            # bordercolor="black",
+            borderpad=2,
+            borderwidth=2,
+            font=dict(family="Arial", size=15, color="rgb(255,255,255)"),
             showarrow=False,
         )
     )
@@ -463,7 +467,7 @@ def render_kd_history_small(df, idx):
     """Render KD and Cumulative KD of last matches"""
 
     y_axis = ["killsCumAvg", "damageDoneCumAvg", "gulagWinPct"]
-    labels = ["Avg kills", "Avg damage", "Gulag Win"]
+    labels = ["kills avg", "dmg avg", "gulag % win"]
     colors = ["darkgrey"]
 
     mode_size = [8]  # node size
@@ -519,20 +523,6 @@ def render_kd_history_small(df, idx):
     )
 
     annotations = []
-    # Source
-    annotations.append(
-        dict(
-            xref="paper",
-            yref="paper",
-            x=0.5,
-            y=-0.1,
-            xanchor="center",
-            yanchor="top",
-            text="n last Battle Royale matches",
-            font=dict(family="Arial", size=11, color="rgb(150,150,150)"),
-            showarrow=False,
-        )
-    )
     # title (not a true plotly chart title "title=", but an annotation 'emulating' a title)
     annotations.append(
         dict(
@@ -542,6 +532,9 @@ def render_kd_history_small(df, idx):
             y=1,
             xanchor="auto",
             yanchor="auto",
+            bgcolor="#F5F7F7",
+            borderpad=2,
+            borderwidth=2,
             text=f"{labels[idx]}: {round(df[y_axis[idx]].iat[-1],2)}",
             font=dict(family="Arial", size=13, color="rgb(37,37,37)"),
             showarrow=False,

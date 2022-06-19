@@ -184,7 +184,7 @@ async def main():
 
             with st.expander(
                 f"{username} | lvl {profile_kpis['level']} | {profile_kpis['matches_count_all']} matches",
-                True,
+                False,
             ):
                 col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
                 with col1:
