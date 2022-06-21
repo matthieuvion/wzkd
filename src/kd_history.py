@@ -35,7 +35,7 @@ def add_moving_avg(df, **kwargs):
     window = kwargs.get("window", 5)
 
     for col in columns:
-        df[f"{col}RollAvg"] = df[col].rolling(window).mean().round(2)
+        df[f"{col}RollAvg"] = df[col].rolling(window, min_periods=1).mean().round(2)
     return df
 
 

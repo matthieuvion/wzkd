@@ -1,4 +1,5 @@
 import itertools
+import pandas as pd
 
 
 """ 
@@ -25,7 +26,7 @@ def get_session_teammates(last_session, gamertag):
 
 
 def stats_last_session(last_session, teammates):
-    """last session > n battle royale matches > formatted > agregated stats"""
+    """last session > n battle royale matches > formatted => agregated stats"""
 
     aggregations = {
         "mode": "count",
@@ -54,3 +55,35 @@ def stats_last_session(last_session, teammates):
     agg_session.gulagStatus = agg_session.gulagStatus.apply(gulag_format)
 
     return agg_session
+
+
+def get_session_weapons(last_session):
+    """Compute overall session weapons stats for Loadout 1"""
+
+    df_weapons = last_session[["kills", "deaths", "loadout_1"]]
+    df_weapons[["w1", "w2"]] = last_session["loadout_1"].str.split(" ", expand=True)
+
+    first_agg = {"loadout_1": "count", "kills": "sum", "deaths": "sum"}
+    primary = (
+        df_weapons.groupby("w1")
+        .agg(first_agg)
+        .reset_index()
+        .rename(columns={"w1": "weapon", "loadout_1": "count"})
+    )
+    secondary = (
+        df_weapons.groupby("w2")
+        .agg(first_agg)
+        .reset_index()
+        .rename(columns={"w2": "weapon", "loadout_1": "count"})
+    )
+    weapons_long = pd.concat([primary, secondary])
+
+    second_agg = {"count": "sum", "kills": "sum", "deaths": "sum"}
+
+    weapons_stats = weapons_long.groupby("weapon").agg(second_agg)
+    weapons_stats["kdRatio"] = weapons_stats["kills"] / weapons_stats["deaths"]
+    weapons_stats["pickRate"] = (
+        weapons_stats["count"] * 100 / (weapons_stats["count"].sum() / 2)
+    )
+
+    return weapons_stats
