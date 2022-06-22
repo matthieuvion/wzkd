@@ -480,7 +480,7 @@ def render_kd_history(df):
 
 
 def render_kd_history_small(df, idx):
-    """Render KD and Cumulative KD of last matches"""
+    """Render KD and Cumulative KD of last matches as Plotly Scatter lines"""
 
     y_axis = ["killsCumAvg", "damageDoneCumAvg", "gulagWinPct"]
     labels = ["kills avg", "dmg avg", "gulag % win"]
@@ -558,6 +558,56 @@ def render_kd_history_small(df, idx):
     )
 
     fig.update_layout(annotations=annotations)
+    st.plotly_chart(
+        fig, use_container_width=True, config=config
+    )  # True if you wantr to bypass width setting
+
+
+def render_weapons(weapons, col):
+    """Render Weapons as Plotly Bar Charts"""
+
+    weapons.sort_values(by=col, ascending=True, inplace=True)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            y=weapons.weapon,
+            x=weapons[col],
+            orientation="h",
+            name="% pick",
+            marker=dict(
+                color="darkgrey", line=dict(color="rgba(246, 78, 139, 1.0)", width=0)
+            ),
+        )
+    )
+
+    fig.update_layout(
+        xaxis=dict(
+            showgrid=True,
+            showline=True,
+            showticklabels=False,
+            zeroline=False,
+            domain=[0.1, 1],
+        ),
+        yaxis=dict(
+            showgrid=True,
+            showline=False,
+            showticklabels=True,
+            zeroline=False,
+            tickfont=dict(
+                family="Arial",
+                size=12,
+                color="rgb(82, 82, 82)",
+            ),  # x axis ticks-text gris foncé
+        ),
+        paper_bgcolor="rgb(255, 255, 255)",
+        plot_bgcolor="rgb(255, 255, 255)",
+        margin=dict(l=0, r=0, t=0, b=0),
+        showlegend=False,
+        width=400,
+        height=230,
+    )
+    config = {"displayModeBar": False}
     st.plotly_chart(
         fig, use_container_width=True, config=config
     )  # True if you wantr to bypass width setting

@@ -291,8 +291,9 @@ async def main():
             weapons = session_details.get_players_weapons(last_session)
 
             rendering.render_last_session(last_stats, gamertag, CONF)
-
-            # st.dataframe(weapons)
+            with st.expander("in construction....more details", False):
+                st.caption("Session Players' Picks")
+                rendering.render_weapons(weapons, col="pickRate")
 
         # 3. render kd history chart(s) in a previously-created-above st.container()
         with container_kd_history:

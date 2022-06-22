@@ -99,4 +99,11 @@ def get_players_weapons(last_session):
         weapons_stats["count"] * 100 / (weapons_stats["count"].sum() / 2)
     )
 
-    return weapons_stats
+    def filter_players_weapons(weapons):
+        """Remove non consistent data from Weapons df (underplayed etc..)"""
+        weapons = weapons.sort_values(by="pickRate", ascending=False)[:10]
+        return weapons
+
+    weapons_stats = filter_players_weapons(weapons_stats)
+
+    return weapons_stats.reset_index()
