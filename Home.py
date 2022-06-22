@@ -233,11 +233,10 @@ async def main():
                 Mode.Warzone,
                 min_br_matches=20,
             )
-            # TODO :(more) error handling in case of API failure ...if matches... :
+            # TODO :(better) error handling in case of API failure ...if matches... :
             matches = api_format.res_to_df(matches, CONF)
             matches = api_format.format_df(matches, CONF, LABELS)
             matches = api_format.augment_df(matches, LABELS)
-
             # In-game user' gamertag can be different from Profile, keep trace of it to personify our app
             gamertag = utils.get_gamertag(matches)
 
@@ -269,31 +268,38 @@ async def main():
 
         # 2.a Request COD API for detailed stats of last session's matches and reshape-augment the API response
         # 2.b render "sessions history" in a previously-created-above st.container()
+        # TODO better API error handling
         with container_last_session:
 
             st.markdown("**Last Session Details**")
+            try:
+                last_session = await GetMoreMatchStats(
+                    client,
+                    platform_convert[selected_platform],
+                    username,
+                    Title.ModernWarfare,
+                    Mode.Warzone,
+                    match_ids=last_session_br_ids,
+                    n_max=8,
+                )
+                last_session = api_format.res_to_df(last_session, CONF)
+                last_session = api_format.format_df(last_session, CONF, LABELS)
+                last_session = api_format.augment_df(last_session, LABELS)
 
-            last_session = await GetMoreMatchStats(
-                client,
-                platform_convert[selected_platform],
-                username,
-                Title.ModernWarfare,
-                Mode.Warzone,
-                match_ids=last_session_br_ids,
-                n_max=8,
-            )
-            last_session = api_format.res_to_df(last_session, CONF)
-            last_session = api_format.format_df(last_session, CONF, LABELS)
-            last_session = api_format.augment_df(last_session, LABELS)
+                teammates = session_details.get_session_teammates(
+                    last_session, gamertag
+                )
+                last_stats = session_details.stats_last_session(last_session, teammates)
+                weapons = session_details.get_players_weapons(last_session)
 
-            teammates = session_details.get_session_teammates(last_session, gamertag)
-            last_stats = session_details.stats_last_session(last_session, teammates)
-            weapons = session_details.get_players_weapons(last_session)
-
-            rendering.render_last_session(last_stats, gamertag, CONF)
-            with st.expander("in progress....more details", False):
-                st.caption("Session Players' Picks")
-                rendering.render_weapons(weapons, col="pickRate")
+                rendering.render_last_session(last_stats, gamertag, CONF)
+                with st.expander("in progress....more details", False):
+                    st.caption("Session Players' Picks")
+                    rendering.render_weapons(weapons, col="pickRate")
+            except:
+                st.warning(
+                    "API issue, cannot retrieve last session matches detailed stats :("
+                )
 
         # 3. render kd history chart(s) in a previously-created-above st.container()
         with container_kd_history:
