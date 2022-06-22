@@ -22,7 +22,7 @@ def get_session_teammates(last_session, gamertag):
             last_session.query("matchID == @id_ & team == @team")["username"].tolist()
         )
 
-    return list(set(teammates))
+    return sorted(list(set(teammates)), key=str.lower)
 
 
 def stats_last_session(last_session, teammates):
@@ -48,16 +48,29 @@ def stats_last_session(last_session, teammates):
         .reset_index()
     )
     agg_session["kdRatio"] = agg_session.kills / agg_session.deaths
+    agg_session.sort_values(
+        by="username", key=lambda col: col.str.lower(), inplace=True
+    )
+
+    def extract_best_loadout(last_session, teammates):
+        # prior, both last_session and teammates are sorted alphabetically by username
+        loadout_idx = [
+            last_session.query("@user in username")["kdRatio"].idxmax()
+            for user in teammates
+        ]
+        return [last_session.iloc[loadout_i]["loadout_1"] for loadout_i in loadout_idx]
 
     def gulag_format(gulag_value):
         return str(int(gulag_value * 100)) + " %"
 
+    best_loadout = extract_best_loadout(last_session, teammates)
+    agg_session.insert(2, "loadoutBest", best_loadout)
     agg_session.gulagStatus = agg_session.gulagStatus.apply(gulag_format)
 
     return agg_session
 
 
-def get_session_weapons(last_session):
+def get_players_weapons(last_session):
     """Compute overall session weapons stats for Loadout 1"""
 
     df_weapons = last_session[["kills", "deaths", "loadout_1"]]

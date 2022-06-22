@@ -156,11 +156,12 @@ def render_last_session(last_stats, gamertag, CONF):
     fig = go.Figure(
         data=[
             go.Table(
-                columnwidth=[15, 8, 8, 8, 8],
+                columnwidth=[15, 7, 12, 7, 7, 7],
                 header=dict(
                     values=[
                         "<b>Player(s)</b>",
                         "<b>Matches</b>",
+                        "<b> Best Loadout</b>",
                         "<b>KD</b>",
                         "<b>K D A</b>",
                         "<b>Gulag</b>",
@@ -176,12 +177,14 @@ def render_last_session(last_stats, gamertag, CONF):
                     values=[
                         last_stats["Player(s)"],
                         last_stats["Matches"],
+                        last_stats["loadoutBest"],
                         last_stats["KD"],
                         last_stats["K D A"],
                         last_stats["Gulag"],
                     ],
                     align="left",
                     format=[
+                        "",
                         "",
                         "",
                         ".2f",

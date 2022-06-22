@@ -1,5 +1,6 @@
 import asyncio
 import os
+from weakref import WeakMethod
 from dotenv import load_dotenv
 import time
 import itertools
@@ -165,14 +166,18 @@ async def main():
         # API credentials stored either locally or server side (share.streamlit.io)
         client = await callofduty.Login(sso=os.environ["SSO"] or st.secrets("SSO"))
 
-        profile = await client.GetProfile(
-            platform_convert[selected_platform],
-            # maybe here use session_state.user
-            # or add a username = session_state.user and do not change functions
-            username,
-            Title.ModernWarfare,
-            Mode.Warzone,
-        )
+        try:
+            profile = await client.GetProfile(
+                platform_convert[selected_platform],
+                # maybe here use session_state.user
+                # or add a username = session_state.user and do not change functions
+                username,
+                Title.ModernWarfare,
+                Mode.Warzone,
+            )
+        except:
+            st.warning(f"wrong platform and/or User ID ({username})")
+            st.stop()
 
         profile_kpis = profile_details.get_kpis_profile(profile)
         lifetime_kd = profile_kpis["br_kd"]
@@ -204,10 +209,6 @@ async def main():
         # The containers will later be filled with charts/tables once we collected our matches history, gamertag, ids...
         container_kd_history = st.container()
         container_last_session = st.container()
-        with container_kd_history:
-            st.markdown("**Battle Royale Stats History**")
-        with container_last_session:
-            st.markdown("**Last Session Details**")
 
         # ----- Central part Sessions History (n sessions of n matches,  default= Battle Royale only ----
 
@@ -269,6 +270,9 @@ async def main():
         # 2.a Request COD API for detailed stats of last session's matches and reshape-augment the API response
         # 2.b render "sessions history" in a previously-created-above st.container()
         with container_last_session:
+
+            st.markdown("**Last Session Details**")
+
             last_session = await GetMoreMatchStats(
                 client,
                 platform_convert[selected_platform],
@@ -284,10 +288,16 @@ async def main():
 
             teammates = session_details.get_session_teammates(last_session, gamertag)
             last_stats = session_details.stats_last_session(last_session, teammates)
+            weapons = session_details.get_players_weapons(last_session)
+
             rendering.render_last_session(last_stats, gamertag, CONF)
+
+            # st.dataframe(weapons)
 
         # 3. render kd history chart(s) in a previously-created-above st.container()
         with container_kd_history:
+
+            st.markdown("**Battle Royale Stats History**")
 
             df_kd = kd_history.to_history(matches)
             rendering.render_kd_history(df_kd)
