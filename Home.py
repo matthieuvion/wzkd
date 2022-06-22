@@ -291,7 +291,7 @@ async def main():
             weapons = session_details.get_players_weapons(last_session)
 
             rendering.render_last_session(last_stats, gamertag, CONF)
-            with st.expander("in construction....more details", False):
+            with st.expander("in progress....more details", False):
                 st.caption("Session Players' Picks")
                 rendering.render_weapons(weapons, col="pickRate")
 
