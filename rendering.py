@@ -135,7 +135,7 @@ Rendering tables with Plotly, **currently in use**
 
 
 def render_last_session(last_stats, gamertag, CONF):
-    """Plotly rendering layer to last session stats, as a table"""
+    """Plotly rendering layer to last session aggregated stats, as a table"""
 
     # tighter our data(frame)
     last_stats["K D A"] = utils.concat_cols(
@@ -148,9 +148,17 @@ def render_last_session(last_stats, gamertag, CONF):
     last_stats = last_stats.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
 
     # Generate table with Plotly
-    colors = [
+    fill_colors = [
         "#ffebf5" if username == gamertag else "white"
         for username in last_stats["Player(s)"].tolist()
+    ]
+    font_color = [
+        [
+            "rgb(230,10,120)" if username == gamertag else "#31333F"
+            for username in list(last_stats["Player(s)"])
+        ],
+        "#31333F",
+        "#31333F",
     ]
 
     fig = go.Figure(
@@ -191,9 +199,12 @@ def render_last_session(last_stats, gamertag, CONF):
                         "",
                         "",
                     ],  # format columns values with d3 format
-                    fill_color=[colors],
+                    # fill_color=[fill_colors],
+                    fill_color=["rgb(255,255,255)"],
                     line_color="lightgrey",
-                    font=dict(color="#31333F", size=14),
+                    # font=dict(color="#31333F", size=14),
+                    font_color=font_color,
+                    font_size=14,
                     height=25,
                 ),
             )
@@ -203,8 +214,10 @@ def render_last_session(last_stats, gamertag, CONF):
     # to narrow spaces between several figures / components
     height = len(last_stats) * 30 + 35
     fig.update_layout(width=600, height=height, margin=dict(l=1, r=0, b=0, t=1))
+
+    config = {"displayModeBar": False}
     st.plotly_chart(
-        fig, use_container_width=True
+        fig, use_container_width=True, config=config
     )  # True, to bypass width setting and fit to st layout
 
 
