@@ -255,7 +255,7 @@ def format_df(df, CONF, LABELS):
                 .astype("Int64")
             )
 
-    # parse game modes (either battle royale : duos..., or 'multiplayer : plunder, rebirth island...)
+    # parse game modes (either battle royale : duos..., or others plunder, rebirth island...)
     for mode in list(LABELS.get("modes").keys()):
         df = df.replace({"mode": LABELS.get("modes")[mode]})
 
@@ -275,7 +275,10 @@ def add_gulag_status(df, LABELS):
     # However there are inconsistencies : some non BR mode (e.g Caldera Clash) still returns 0.
     if "gulagKills" in df.columns.tolist():
         df.loc[
-            df["mode"].isin(list(LABELS.get("modes")["multiplayer"].values())),
+            df["mode"].isin(
+                list(LABELS.get("modes")["others"].values())
+                + list(LABELS.get("modes")["resurgence"].values())
+            ),
             ["gulagKills", "gulagDeaths"],
         ] = np.nan
 

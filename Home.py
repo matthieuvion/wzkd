@@ -32,13 +32,12 @@ import rendering
 
 # -------------------------- Config, credentials  ----------------------------------
 
-
 # "Login" to Warzone API using wzlight wrapper
 # Local app: load our SSO token (required from COD API) from local .env. See .env-template & notebooks examples for help
 # Deployed app : if app deployed to share.streamlit.io, the token could be accessible via st.secrets['']
 load_dotenv()
-sso = os.environ["SSO"] or st.secrets("SSO")
-api = Api(sso)
+# sso = os.environ["SSO"] or st.secrets("SSO")
+sso = os.environ["SSO"]
 
 # Wzlight api is enhanced (tweaks, caching etc..) in a separate Cls in enhance.py module
 enh_api = EnhancedApi(sso)
@@ -87,6 +86,9 @@ async def main():
                     I.e, user your Activision User ID is **not necessarily the same** as the one set by your preferred gaming platform (Bnet, Psn...) """,
                 )
             with col2:
+                # e.g usernames :
+                # 1. amadevs#1689 battle, gentil_renard#3391079 acti
+                # 2. gentilrenard#2939 battle, gentilrenard#9079733 acti
                 username = st.text_input(
                     "user ID",
                     "amadevs#1689",
@@ -113,11 +115,10 @@ async def main():
 
             # Call/Check if User's COD profile exists (or is public)
             try:
-                # Default call, without our app enhancements would be profile = await api.GetProfile()
-                profile = await enh_api.GetProfileCached(
-                    httpxClient, platform, username
-                )
+                profile = await enh_api.GetProfile(httpxClient, platform, username)
             except:
+                # TODO : replace except by a type check : when not searchable
+                # api returns error message, not an error per se
                 st.warning(f"wrong platform and/or User ID ({username})")
                 st.stop()
 
@@ -128,9 +129,9 @@ async def main():
             # add a little Scorecard 'Profile' in Sidebar, under Search fields
             with st.sidebar:
                 st.subheader("Profile")
-
+                username_short = username.split("#")[0]
                 with st.expander(
-                    f"{username} | lvl {profile_kpis['level']} | {profile_kpis['matches_count_all']} matches",
+                    f"{username_short} | lvl {profile_kpis['level']} | {profile_kpis['matches_count_all']} matches",
                     False,
                 ):
                     col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
@@ -156,13 +157,9 @@ async def main():
                 tab1, tab2, tab3 = st.tabs(list_)
                 # filled-in later, once we collected recent matches (history)
 
-            with cont_last_session:
-                st.markdown("**Last Session Details**")
-                # filled-in later once we collected detailed stats for n recent matches (last session)
-
-            # -----------------------------------------------------------#
-            # Block Match History : matches/stats grouped per session    #
-            # -----------------------------------------------------------#
+            # ----------------------------------------------------------#
+            # Match History                                             #
+            # ----------------------------------------------------------#
 
             # Get recent matches (history)
             st.markdown("**Sessions History**")
@@ -204,10 +201,32 @@ async def main():
                     rendering.ag_render_session(df_session, CONF)
 
             # ----------------------------------------------------------#
-            #   Block Last Session Details                              #
+            # Last Session Details                                      #
             # ----------------------------------------------------------#
 
-            # st.markdown("---")
+            with cont_last_session:
+                st.markdown("**Last Session Details**")
+                with st.spinner("Collecting Last Session detailed stats..."):
+                    last_session = await enh_api.GetMatchList(
+                        httpxClient, platform, last_type_ids
+                    )
+
+                # API results are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
+                last_session = api_format.res_to_df(last_session, CONF)
+                last_session = api_format.format_df(last_session, CONF, LABELS)
+                last_session = api_format.augment_df(last_session, LABELS)
+
+                teammates = session_details.get_session_teammates(
+                    last_session, gamertag
+                )
+                last_stats = session_details.stats_last_session(last_session, teammates)
+                # weapons = session_details.get_players_weapons(last_session)
+
+                rendering.render_last_session(last_stats, gamertag, CONF)
+
+            # ----------------------------------------------------------#
+            # Stats History                                             #
+            # ----------------------------------------------------------#
 
             # Recent matches are split in 3 types (br, resu, others)
             # API results are flattened, reshaped, formated, augmented (+ gulag W/L entry)

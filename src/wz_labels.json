@@ -5,25 +5,36 @@
          "br_brduos": "Duos",
          "br_brtrios": "Trios",
          "br_brquads": "Quads",
-         "br_dbd_dbd": "Iron Trials",
-         "br_vov_op_flash": "S6 Flashback"
+         "br_dbd_dbd": "Iron Trials"
       },
-      "multiplayer": {
+      "resurgence": {
+         "br_rebirth_rbrthsolo": "Rebirth x1",
+         "br_rebirth_rbrthduos": "Rebirth x2",
+         "br_rebirth_rbrthtrios": "Rebirth x3",
+         "br_rebirth_rbrthquad": "Rebirth x4",
+         "br_rebirth_playlist_wz340/fortkeep_res_solo": "F. Keep x1",
+         "br_rebirth_playlist_wz340/fortkeep_res_duos": "F. Keep x2",
+         "br_rebirth_playlist_wz340/fortkeep_res_trios": "F. Keep x3",
+         "br_rebirth_playlist_wz340/fortkeep_res_quad": "F. Keep x4"
+      },
+      "others": {
+         "br_tdbd_playlist_wz345/cal_titanium_quads": "Titanium T. x4",
+         "br_tdbd_playlist_wz345/cal_titanium_trios": "Titanium T. x3",
+         "br_tdbd_playlist_wz345/cal_titanium_duos": "Titanium T. x2",
+         "br_tdbd_playlist_wz345/cal_titanium_solo": "Titanium T. x1",
+         "br_vov_op_flash": "S6 Flashback",
          "br_dmz_plnbld": "Pldr x1",
          "br_dmz_plndduos": "Pldr x2",
          "br_dmz_plndtrios": "Pldr x3",
          "br_dmz_plunquad": "Pldr x4",
          "br_rumble_clash": "Rumble",
-         "br_rebirth_rbrthsolo": "Rbth x1",
-         "br_rebirth_rbrthduos": "Rbth x2",
-         "br_rebirth_rbrthtrios": "Rbth x3",
-         "br_rebirth_rbrthquad": "Rbth x4",
          "br_kingslayer_kingsltrios": "King Slyr x3",
-         "br_rumble_clash_caldera": "Clash",
+         "br_rumble_clash_caldera": "Clash Caldera",
          "br_payload_playlist_wz325/rbrthpayload": "Rbth Payload",
-         "br_dmz_playlist_wz325/rbrthbmo_quads": "Rbth Pldr x4",
          "br_mendota_playlist_wz330/op_mon": "Op Monarch",
-         "br_respect_playlist_wz335/respect": "Champion of Caldera"
+         "br_respect_playlist_wz335/respect": "Champion of Caldera",
+         "br_gold_war_playlist_wz340/gld_pldr": "Golden Pldr",
+         "br_dmz_playlist_wz325/rbrthbmo_quads": "Rbth Blood Money"
       }
    },
    "weapons": {
@@ -141,6 +152,7 @@
          "sm_papa90": "P90",
          "sm_ppapa41": "ppsh-vg",
          "sm_stango5": "Sten",
+         "sm_victor": "Fennec",
          "sm_t9accurate": "LC10",
          "sm_t9capacity": "Bullfrog",
          "sm_t9cqb": "OTs_9",

@@ -58,7 +58,7 @@ async def Send(self, req):
     """
 
     # // to original client :  add a httpx.Timeout argument
-    timeout = httpx.Timeout(15.0, connect=20.0)
+    timeout = httpx.Timeout(15.0, connect=20.0)  # 15, 20
 
     req.SetHeader("Authorization", f"Bearer {self.auth.AccessToken}")
     req.SetHeader("x_cod_device_id", self.auth.DeviceId)
@@ -70,27 +70,23 @@ async def Send(self, req):
         )
 
         data = await JSONorText(res)
+
         if isinstance(data, dict):
             status = data.get("status")
-
-            # The API tends to return HTTP 200 even when an error occurs
-            if status == "error":
-                raise HTTPException(res.status_code, data)
-
+        # The API tends to return HTTP 200 even when an error occurs
+        if status == "error":
+            raise HTTPException(res.status_code, data)
         # HTTP 2XX: Success
         if 300 > res.status_code >= 200:
             return data
-
         # HTTP 429: Too Many Requests
         if res.status_code == 429:
             # TODO Handle rate limiting
             raise HTTPException(res.status_code, data)
-
         # HTTP 500/502: Internal Server Error/Bad Gateway
         if res.status_code == 500 or res.status_code == 502:
             # TODO Handle Unconditional retries
             raise HTTPException(res.status_code, data)
-
         # HTTP 403: Forbidden
         if res.status_code == 403:
             raise Forbidden(res.status_code, data)

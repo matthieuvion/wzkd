@@ -25,7 +25,7 @@ wzlight client enhancements
 
 
 class EnhancedApi(Api):
-    """Inherits Cls wzlight Api, add or enhance default methods"""
+    """Inherits wzlight Api Cls, add or enhance default methods"""
 
     def __init__(self, sso):
         super().__init__(sso)
@@ -49,7 +49,6 @@ class EnhancedApi(Api):
         """Tweak Api.GetMatch adding caching, backoff, async.Semaphore limit object"""
 
         async with sema:
-            print(f"getting id {matchId} ...")
             r = await self.GetMatch(httpxClient, platform, matchId)
             await asyncio.sleep(1)
             if sema.locked():
@@ -68,8 +67,7 @@ class EnhancedApi(Api):
             tasks.append(self.GetMatchSafe(httpxClient, platform, matchId, sema))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        # return a list of n MatchIds * lists (with match stats.
-        return results
+        return list(itertools.chain(*results))
 
     @alru_cache(maxsize=128)
     @backoff.on_exception(backoff.expo, httpx.HTTPError, max_time=20, max_tries=3)
