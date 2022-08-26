@@ -36,8 +36,7 @@ import rendering
 # Local app: load our SSO token (required from COD API) from local .env. See .env-template & notebooks examples for help
 # Deployed app : if app deployed to share.streamlit.io, the token could be accessible via st.secrets['']
 load_dotenv()
-# sso = os.environ["SSO"] or st.secrets("SSO")
-sso = os.environ["SSO"]
+sso = os.environ["SSO"] or st.secrets("SSO")
 
 # Wzlight api is enhanced (tweaks, caching etc..) in a separate Cls in enhance.py module
 enh_api = EnhancedApi(sso)
