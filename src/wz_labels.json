@@ -4,8 +4,7 @@
          "br_brsolo": "Solo",
          "br_brduos": "Duos",
          "br_brtrios": "Trios",
-         "br_brquads": "Quads",
-         "br_dbd_dbd": "Iron Trials"
+         "br_brquads": "Quads"
       },
       "resurgence": {
          "br_rebirth_rbrthsolo": "Rebirth x1",
@@ -18,6 +17,7 @@
          "br_rebirth_playlist_wz340/fortkeep_res_quad": "F. Keep x4"
       },
       "others": {
+         "br_dbd_dbd": "Iron Trials",
          "br_tdbd_playlist_wz345/cal_titanium_quads": "Titanium T. x4",
          "br_tdbd_playlist_wz345/cal_titanium_trios": "Titanium T. x3",
          "br_tdbd_playlist_wz345/cal_titanium_duos": "Titanium T. x2",

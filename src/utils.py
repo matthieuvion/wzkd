@@ -1,17 +1,11 @@
-from codecs import xmlcharrefreplace_errors
 from pathlib import Path
 import datetime
 from datetime import datetime, timezone
-from doctest import DocFileTest
-from re import S
-from this import d
+
 from typing import Literal
 import pandas as pd
-import numpy as np
 import toml
 import json
-
-import streamlit as st
 
 # CONF utils
 
@@ -52,19 +46,20 @@ def br_only(df, CONF, LABELS):
         return df
 
 
-def filter_history(recent_matches: list[dict], select: Literal["br", "resu", "others"]):
-    """Filter raw recent matches (history) API results, retain either
+def filter_history(
+    recent_matches, LABELS, select: Literal["Battle Royale", "Resurgence", "Others"]
+):
+    """Filter --an already parsed/formated) recent matches history, retain either
     BR, Resurgence or Others match type"""
-    if select == "br":
-        return [match for match in recent_matches if "br_br" in match["mode"]]
-    elif select == "resu":
-        return [match for match in recent_matches if "rebirth" in match["mode"]]
-    elif select == "others":
-        return [
-            match
-            for match in recent_matches
-            if not any(sub in match["mode"] for sub in ["br_br", "rebirth"])
-        ]
+
+    if select == "Battle Royale":
+        list_modes = list(LABELS.get("modes").get("battle_royale").values())
+    elif select == "Resurgence":
+        list_modes = list(LABELS.get("modes").get("resurgence").values())
+    elif select == "Others":
+        list_modes = list(LABELS.get("modes").get("others").values())
+
+    return recent_matches.query("mode in @list_modes")
 
 
 # Retrieve ids, names, dates...

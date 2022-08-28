@@ -63,9 +63,15 @@ def stats_last_session(last_session, teammates):
     def gulag_format(gulag_value):
         return str(int(gulag_value * 100)) + " %"
 
+    def remove_session_teammates(agg_session):
+        """Remove some of random people you played with"""
+        # agg_session = agg_session.sort_values(by="played", ascending=False).head(4)
+        return agg_session.sort_values(by="played", ascending=False).head(4)
+
     best_loadout = extract_best_loadout(last_session, teammates)
     agg_session.insert(2, "loadoutBest", best_loadout)
     agg_session.gulagStatus = agg_session.gulagStatus.apply(gulag_format)
+    agg_session = remove_session_teammates(agg_session)
 
     return agg_session
 

@@ -50,10 +50,10 @@ class EnhancedApi(Api):
 
         async with sema:
             r = await self.GetMatch(httpxClient, platform, matchId)
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
             if sema.locked():
                 print("Concurrency limit reached, waiting ...")
-                await asyncio.sleep(2)
+                await asyncio.sleep(0.5)
             return r
 
     async def GetMatchList(self, httpxClient, platform, matchIds: list[int]):

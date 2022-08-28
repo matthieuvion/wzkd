@@ -449,7 +449,7 @@ def render_kd_history(df):
             y=-0.1,
             xanchor="center",
             yanchor="top",
-            text="n last Battle Royale matches",
+            text="n last matches",
             font=dict(family="Arial", size=11, color="rgb(150,150,150)"),
             showarrow=False,
         )

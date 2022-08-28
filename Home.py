@@ -90,7 +90,8 @@ async def main():
                 # 2. gentilrenard#2939 battle, gentilrenard#9079733 acti
                 username = st.text_input(
                     "user ID",
-                    "amadevs#1689",
+                    # "amadevs#1689",
+                    "gentilrenard#2939",
                     help=""" Check your privacy settings on callofduty.com/cod/profile so the app can retrieve your stats.  
                     Activision ID can be found in *Basic Info* and Psn/Bnet/xbox IDs in *Linked Account*.""",
                 )
@@ -149,13 +150,6 @@ async def main():
             cont_stats_history = st.container()
             cont_last_session = st.container()
 
-            with cont_stats_history:
-                st.markdown("**Stats History**")
-                # TODO : sorted list so most played type is displayed first
-                list_ = ["Battle Royale", "Resurgence", "Others"]
-                tab1, tab2, tab3 = st.tabs(list_)
-                # filled-in later, once we collected recent matches (history)
-
             # ----------------------------------------------------------#
             # Match History                                             #
             # ----------------------------------------------------------#
@@ -166,7 +160,7 @@ async def main():
                 recent_matches = await enh_api.GetRecentMatchesWithDateLoop(
                     httpxClient, platform, username, max_calls=2
                 )
-            # in-game gamertag can be different from in-stats gamertag
+            # in-game gamertag can be different from stats username
             gamertag = utils.get_gamertag(recent_matches)
 
             # Extract last session match ids, for the last played type (br/resu only)*
@@ -224,26 +218,34 @@ async def main():
                 rendering.render_last_session(last_stats, gamertag, CONF)
 
             # ----------------------------------------------------------#
-            # Stats History                                             #
+            # Stats(kd) History                                         #
             # ----------------------------------------------------------#
 
             # Recent matches are split in 3 types (br, resu, others)
-            # API results are flattened, reshaped, formated, augmented (+ gulag W/L entry)
-            # and stored in a dic with 3 entries  : we wont filter afterwards, so the app does not rerun
-            # data = {}
-            # types = ["br", "resu", "others"]
-            # for type_ in types:
-            #     data[type_] = utils.filter_history(recent_matches, select=type_)
-            #     if len(data[type_]) >= 2:
-            #         data[type_] = api_format.res_to_df(data[type_], CONF)
-            #         data[type_] = api_format.format_df(data[type_], CONF, LABELS)
-            #         data[type_] = api_format.augment_df(data[type_], LABELS)
-            #     else:
-            #         data[type_] = None
+            # and stored in a dic with 3 entries so we wont filter afterwards & the app does not rerun
+            data = {}
+            types = ["Battle Royale", "Resurgence", "Others"]
+            for type_ in types:
+                data[type_] = utils.filter_history(recent_matches, LABELS, select=type_)
 
-            # convert to sessions (> 1h between 2 matches), aggregate
+            with cont_stats_history:
+                st.markdown("**Stats History**")
 
-            # st.write(data)
+                # We want the first tab to be the most played game mode (type)
+                sort_idx = [(k, len(v)) for k, v in data.items()]
+                sorted_tabs = sorted(sort_idx, key=lambda x: x[1], reverse=True)
+                sorted_tabs = [t[0] for t in sorted_tabs]
+
+                tab1, tab2, tab3 = st.tabs(sorted_tabs)
+                with tab1:
+                    df_kd = kd_history.to_history(data.get(sorted_tabs[0]))
+                    rendering.render_kd_history(df_kd)
+
+                    col1, col2 = st.columns((0.5, 0.5))
+                    with col1:
+                        rendering.render_kd_history_small(df_kd, idx=0)
+                    with col2:
+                        rendering.render_kd_history_small(df_kd, idx=1)
 
 
 if __name__ == "__main__":
