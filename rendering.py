@@ -479,11 +479,14 @@ def render_kd_history(df):
     )  # True if you wantr to bypass width setting
 
 
-def render_kd_history_small(df, idx):
+def render_kd_history_small(df, col):
     """Render KD and Cumulative KD of last matches as Plotly Scatter lines"""
 
-    y_axis = ["killsCumAvg", "damageDoneCumAvg", "gulagWinPct"]
-    labels = ["kills avg", "dmg avg", "gulag % win"]
+    axis_labels = {
+        "killsCumAvg": "kills avg",
+        "damageDoneCumAvg": "dmg avg",
+        "gulagWinPct": "gulag % win",
+    }
     colors = ["darkgrey"]
 
     mode_size = [8]  # node size
@@ -497,9 +500,9 @@ def render_kd_history_small(df, idx):
     fig.add_trace(
         go.Scatter(
             x=df.index,
-            y=df[y_axis[idx]],
+            y=df[col],
             mode="lines",
-            name=labels[idx],
+            name=axis_labels.get(col),
             line=dict(color=colors[0], width=line_size[0]),
             connectgaps=True,
         )
@@ -551,7 +554,7 @@ def render_kd_history_small(df, idx):
             bgcolor="#F5F7F7",
             borderpad=2,
             borderwidth=2,
-            text=f"{labels[idx]}: {round(df[y_axis[idx]].iat[-1],2)}",
+            text=f"{axis_labels.get(col)}: {round(df[col].iat[-1],2)}",
             font=dict(family="Arial", size=13, color="rgb(37,37,37)"),
             showarrow=False,
         )

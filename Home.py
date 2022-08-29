@@ -69,7 +69,9 @@ async def main():
     if "user" not in st.session_state:
         st.session_state.user = None
 
-    # Sidebar
+        # ----------------------------------------------------------#
+        # Sidebar / Search Player                                   #
+        # ----------------------------------------------------------#
 
     with st.sidebar:
 
@@ -90,7 +92,6 @@ async def main():
                 # 2. gentilrenard#2939 battle, gentilrenard#9079733 acti
                 username = st.text_input(
                     "user ID",
-                    # "amadevs#1689",
                     "gentilrenard#2939",
                     help=""" Check your privacy settings on callofduty.com/cod/profile so the app can retrieve your stats.  
                     Activision ID can be found in *Basic Info* and Psn/Bnet/xbox IDs in *Linked Account*.""",
@@ -113,15 +114,18 @@ async def main():
         # httpx client (to use with wzlight COD API wrapper) as a context manager :
         async with httpx.AsyncClient() as httpxClient:
 
-            # Call/Check if User's COD profile exists (or is public)
-            try:
-                profile = await enh_api.GetProfile(httpxClient, platform, username)
-            except:
-                # TODO : replace except by a type check : when not searchable
-                # api returns error message, not an error per se
-                st.warning(f"wrong platform and/or User ID ({username})")
-                st.stop()
+            # ----------------------------------------------------------#
+            # Search profile                                            #
+            # ----------------------------------------------------------#
 
+            profile = await enh_api.GetProfile(httpxClient, platform, username)
+
+            # check if profile exists (key "message" in API response dict.")
+            if "message" in list(profile.keys()):
+                st.warning(
+                    f"Wrong platform and/or User ID ({username}).\nWorking example : gentilrenard#2939, Bnet"
+                )
+                st.stop()
             profile_kpis = profile_details.get_kpis_profile(profile)
             lifetime_kd = profile_kpis["br_kd"]
             lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
@@ -158,7 +162,7 @@ async def main():
             st.markdown("**Sessions History**")
             with st.spinner("Collecting (BR) matches history..."):
                 recent_matches = await enh_api.GetRecentMatchesWithDateLoop(
-                    httpxClient, platform, username, max_calls=2
+                    httpxClient, platform, username, max_calls=3
                 )
             # in-game gamertag can be different from stats username
             gamertag = utils.get_gamertag(recent_matches)
@@ -218,7 +222,7 @@ async def main():
                 rendering.render_last_session(last_stats, gamertag, CONF)
 
             # ----------------------------------------------------------#
-            # Stats(kd) History                                         #
+            # Stats (kd) History Charts                                 #
             # ----------------------------------------------------------#
 
             # Recent matches are split in 3 types (br, resu, others)
@@ -231,21 +235,52 @@ async def main():
             with cont_stats_history:
                 st.markdown("**Stats History**")
 
-                # We want the first tab to be the most played game mode (type)
+                # We want the first tab to be the most played game mode (aka. type)
                 sort_idx = [(k, len(v)) for k, v in data.items()]
-                sorted_tabs = sorted(sort_idx, key=lambda x: x[1], reverse=True)
-                sorted_tabs = [t[0] for t in sorted_tabs]
+                sorted_labels = sorted(sort_idx, key=lambda x: x[1], reverse=True)
+                sorted_labels = [t[0] for t in sorted_labels]
 
-                tab1, tab2, tab3 = st.tabs(sorted_tabs)
-                with tab1:
-                    df_kd = kd_history.to_history(data.get(sorted_tabs[0]))
-                    rendering.render_kd_history(df_kd)
+                tab1, tab2, tab3 = st.tabs(sorted_labels)
 
-                    col1, col2 = st.columns((0.5, 0.5))
-                    with col1:
-                        rendering.render_kd_history_small(df_kd, idx=0)
-                    with col2:
-                        rendering.render_kd_history_small(df_kd, idx=1)
+                # For every game mode, render charts in a separate tab :
+                # 1 main chart (kd) on top of 2 or 3 smaller charts, organized in columns
+                for tab, tab_label in zip([tab1, tab2, tab3], sorted_labels):
+                    with tab:
+                        # if enough data points for this game mode :
+                        if len(data[tab_label]) >= 2:
+
+                            # main chart : K/D history scatter line
+                            df_kd = kd_history.to_history(data.get(tab_label))
+                            rendering.render_kd_history(df_kd)
+
+                            if not tab_label == "Battle Royale":
+                                # small charts : Cumulative / avg given indicator, 2 cols layout
+                                col1, col2 = st.columns((0.5, 0.5))
+                                with col1:
+                                    rendering.render_kd_history_small(
+                                        df_kd, col="killsCumAvg"
+                                    )
+                                with col2:
+                                    rendering.render_kd_history_small(
+                                        df_kd, col="damageDoneCumAvg"
+                                    )
+                            else:
+                                # small charts : Cumulative / avg given indicator, 3 cols layout
+                                col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
+                                with col1:
+                                    rendering.render_kd_history_small(
+                                        df_kd, col="killsCumAvg"
+                                    )
+                                with col2:
+                                    rendering.render_kd_history_small(
+                                        df_kd, col="damageDoneCumAvg"
+                                    )
+                                with col3:
+                                    rendering.render_kd_history_small(
+                                        df_kd, col="gulagWinPct"
+                                    )
+                        else:
+                            st.caption("Not enough matches played in recent history")
 
 
 if __name__ == "__main__":
