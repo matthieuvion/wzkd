@@ -59,11 +59,9 @@ async def main():
         layout="centered",
         initial_sidebar_state="auto",
     )
-
-    st.image("data/wzkd3.png", width=130)
-    # st.image("data/dallE_fox_1.png", width=70)
+    st.image("data/DallE_logo_2.png", width=200)
     st.markdown(" ")
-    st.markdown(" ")
+    # st.markdown(" ")
 
     # For streamlit not to loop if a username is not entered & searched
     if "user" not in st.session_state:
@@ -92,7 +90,7 @@ async def main():
                 # 2. gentilrenard#2939 battle, gentilrenard#9079733 acti
                 username = st.text_input(
                     "user ID",
-                    "gentilrenard#2939",
+                    "amadevs#1689",
                     help=""" Check your privacy settings on callofduty.com/cod/profile so the app can retrieve your stats.  
                     Activision ID can be found in *Basic Info* and Psn/Bnet/xbox IDs in *Linked Account*.""",
                 )
@@ -160,7 +158,7 @@ async def main():
 
             # Get recent matches (history)
             st.markdown("**Sessions History**")
-            with st.spinner("Collecting (BR) matches history..."):
+            with st.spinner("Collecting matches history..."):
                 recent_matches = await enh_api.GetRecentMatchesWithDateLoop(
                     httpxClient, platform, username, max_calls=3
                 )
@@ -203,7 +201,7 @@ async def main():
 
             with cont_last_session:
                 st.markdown("**Last Session Details**")
-                with st.spinner("Collecting Last Session detailed stats..."):
+                with st.spinner("Collecting Last Session (BR/Resu) detailed stats..."):
                     last_session = await enh_api.GetMatchList(
                         httpxClient, platform, last_type_ids
                     )
