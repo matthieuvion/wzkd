@@ -1,5 +1,4 @@
 [APP_BEHAVIOR]
-br_only = true
 mode = "online"
 filename.matches = "matches_20_1.pkl"
 filename.more_matches = "matches_60.pkl"
@@ -98,7 +97,3 @@ labels.username = 'Player(s)'
 # mode : "online" or "offline"
 # COD API is either inconsistent / or not very permissive. For debug / trial purposes you can set it to run
 # as "offline"'. Typical API responses for profile, matches history , match detail are stored in /data
-
-# br_only : true or false
-# If set to true, remove matches that are not of type 'battle royale' in our matches history, i.e. Plunder, Clash, Rebirth... 
-# The filter is applied after the call to getMatches is made to the API (cannot do that beforehand)

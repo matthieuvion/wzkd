@@ -1,9 +1,6 @@
 import asyncio
 import os
-from weakref import WeakMethod
 from dotenv import load_dotenv
-import time
-import itertools
 
 import pandas as pd
 import httpx
@@ -12,9 +9,8 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 from stqdm import stqdm
 
-from wzlight import Api
-
 # enhanced Api child cls to boost some wzlight Api methods (add caching etc.)
+# from wzlight import Api
 from src.enhance import EnhancedApi
 
 
@@ -53,13 +49,25 @@ LABELS = utils.load_labels()
 # client runs (partly) asynchronously, thus the async-await syntax
 async def main():
 
+    # ----------------------------------------------------------#
+    # Page config, Logo                                         #
+    # ----------------------------------------------------------#
+
     st.set_page_config(
         page_title="Home",
         page_icon="🦊",
         layout="centered",
         initial_sidebar_state="auto",
     )
-    st.image("data/DallE_logo_2.png", width=200)
+
+    # hacky way exists with css, but let's align logo to the right w/ 3 cols
+    col1, col2, col3 = st.columns((0.4, 0.4, 0.2))
+    with col1:
+        st.write("")
+    with col2:
+        st.write("")
+    with col3:
+        st.image("data/DallE_logo_2.png", width=200, output_format="PNG")
     st.markdown(" ")
     # st.markdown(" ")
 
@@ -94,7 +102,7 @@ async def main():
                     help=""" Check your privacy settings on callofduty.com/cod/profile so the app can retrieve your stats.  
                     Activision ID can be found in *Basic Info* and Psn/Bnet/xbox IDs in *Linked Account*.""",
                 )
-            submit_button = st.form_submit_button("submit")
+            submit_button = st.form_submit_button("submit / refresh")
 
     if username:
         st.session_state.user = username
@@ -162,7 +170,7 @@ async def main():
                 recent_matches = await enh_api.GetRecentMatchesWithDateLoop(
                     httpxClient, platform, username, max_calls=3
                 )
-            # in-game gamertag can be different from stats username
+            # in-game gamertag can be different from api username
             gamertag = utils.get_gamertag(recent_matches)
 
             # Extract last session match ids, for the last played type (br/resu only)*
@@ -215,7 +223,6 @@ async def main():
                     last_session, gamertag
                 )
                 last_stats = session_details.stats_last_session(last_session, teammates)
-                # weapons = session_details.get_players_weapons(last_session)
 
                 rendering.render_last_session(last_stats, gamertag, CONF)
 

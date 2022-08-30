@@ -53,6 +53,7 @@ def stats_last_session(last_session, teammates):
     )
 
     def extract_best_loadout(last_session, teammates):
+        """Extract loadout of game with highest kd"""
         # prior, both last_session and teammates are sorted alphabetically by username
         loadout_idx = [
             last_session.query("@user in username")["kdRatio"].idxmax()

@@ -36,16 +36,6 @@ def load_conf():
     return CONF
 
 
-def br_only(df, CONF, LABELS):
-    """Keep 'legacy' Battle Royale matches only, from (processed) COD API result"""
-
-    # check if mode activated in CONF
-    if CONF.get("APP_BEHAVIOR")["br_only"]:
-        return df[df["mode"].isin(list(LABELS.get("modes")["battle_royale"].values()))]
-    else:
-        return df
-
-
 def filter_history(
     recent_matches, LABELS, select: Literal["Battle Royale", "Resurgence", "Others"]
 ):
@@ -60,31 +50,6 @@ def filter_history(
         list_modes = list(LABELS.get("modes").get("others").values())
 
     return recent_matches.query("mode in @list_modes")
-
-
-# Retrieve ids, names, dates...
-
-
-def get_last_match_id(matches):
-    """Extract last (Battle Royale) Match ID from list of last matches"""
-    list_br_match = [match for match in matches if "br_br" in match["mode"]]
-    last_match_id = int(list_br_match[0]["matchID"]) if len(list_br_match) > 0 else None
-    return last_match_id
-
-
-def get_last_br_ids(history, LABELS):
-    """Extract battle royale matches IDs from latest session with br matches"""
-    br_modes = [value for value in LABELS.get("modes").get("battle_royale").values()]
-    session_idx_min = history.query("mode in @br_modes").session.min()
-    # TODO : select BR or Resu here
-
-    br_ids = (
-        history.query("mode in @br_modes")
-        .groupby("session")
-        .get_group(session_idx_min)
-        .matchID.tolist()
-    )
-    return [int(br_id) for br_id in br_ids]
 
 
 def get_last_session_ids(matches):
