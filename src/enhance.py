@@ -94,7 +94,7 @@ class EnhancedApi(Api):
         loop over GetRecentMatchesWithDateCached, so we get n * 20 recent matches
         """
 
-        max_calls = kwargs.get("max_calls", 5)
+        max_calls = kwargs.get("max_calls", 4)
         ncalls = 0
 
         all_batchs = []

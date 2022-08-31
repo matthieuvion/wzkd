@@ -68,7 +68,7 @@ async def main():
         st.write("")
     with col3:
         st.image("data/DallE_logo_2.png", width=200, output_format="PNG")
-    st.markdown(" ")
+        st.markdown(" ")
     # st.markdown(" ")
 
     # For streamlit not to loop if a username is not entered & searched
@@ -88,7 +88,7 @@ async def main():
             with col1:
                 platform = st.selectbox(
                     "platform",
-                    ("Bnet", "Xbox", "Psn", "Acti"),
+                    ["Bnet", "Xbox", "Psn", "Acti"],
                     help=""" Platform must be set accordingly to the provided user ID.  
                     I.e, user your Activision User ID is **not necessarily the same** as the one set by your preferred gaming platform (Bnet, Psn...) """,
                 )
@@ -156,7 +156,7 @@ async def main():
                     with col3:
                         st.metric(label="kills avg br", value=lifetime_kills_ratio)
 
-            # Create 2 containers, later filled-in with charts/tables, once we collected matches history
+            # Create 2 containers, later filled-in with charts/tables, once we collected recent matches history
             cont_stats_history = st.container()
             cont_last_session = st.container()
 
@@ -165,10 +165,13 @@ async def main():
             # ----------------------------------------------------------#
 
             # Get recent matches (history)
-            st.markdown("**Sessions History**")
-            with st.spinner("Collecting matches history..."):
+            st.markdown("**Play Sessions History**")
+            max_calls = 5
+            with st.spinner(
+                f"Recent matches history : collecting last {max_calls *20} matches..."
+            ):
                 recent_matches = await enh_api.GetRecentMatchesWithDateLoop(
-                    httpxClient, platform, username, max_calls=3
+                    httpxClient, platform, username, max_calls=max_calls
                 )
             # in-game gamertag can be different from api username
             gamertag = utils.get_gamertag(recent_matches)
@@ -208,8 +211,8 @@ async def main():
             # ----------------------------------------------------------#
 
             with cont_last_session:
-                st.markdown("**Last Session Details**")
-                with st.spinner("Collecting Last Session (BR/Resu) detailed stats..."):
+                st.markdown("**Details on most recent BR / Resu. session**")
+                with st.spinner("Collecting every match of last session..."):
                     last_session = await enh_api.GetMatchList(
                         httpxClient, platform, last_type_ids
                     )
@@ -231,14 +234,14 @@ async def main():
             # ----------------------------------------------------------#
 
             # Recent matches are split in 3 types (br, resu, others)
-            # and stored in a dic with 3 entries so we wont filter afterwards & the app does not rerun
+            # and stored in a dict with 3 entries so we wont filter afterwards & the app does not rerun
             data = {}
             types = ["Battle Royale", "Resurgence", "Others"]
             for type_ in types:
                 data[type_] = utils.filter_history(recent_matches, LABELS, select=type_)
 
             with cont_stats_history:
-                st.markdown("**Stats History**")
+                st.markdown("**Performance History**")
 
                 # We want the first tab to be the most played game mode (aka. type)
                 sort_idx = [(k, len(v)) for k, v in data.items()]
