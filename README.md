@@ -1,4 +1,4 @@
-![WZKD Dall-E generated logo](https://github.com/matthieuvion/wzkd/blob/master/data/DallE_logo_2.png?raw=True)
+![WZKD logo](https://github.com/matthieuvion/wzkd/blob/master/data/DallE_logo_2.png?raw=True "Dall-E generated WZKD logo")
 
 [![MIT License](https://img.shields.io/apm/l/atomic-design-ui.svg?)](https://github.com/tterb/atomic-design-ui/blob/master/LICENSEs)
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)

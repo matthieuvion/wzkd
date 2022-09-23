@@ -170,6 +170,8 @@ def res_to_df(res, CONF):
     Matches : every match of a list of matches as rows, a given player stats for every match as columns/values
     """
 
+    # TODO : could try using pd.json_normalize()
+    # still requires to expand col player/loadout(s) (a list of dict) afterwards tho
     df = pd.DataFrame(res)
 
     # cols 'playerStats' (1) and 'player' (2) can be expanded further
@@ -188,7 +190,8 @@ def res_to_df(res, CONF):
     loadout_col = "loadout" if "loadout" in loadout_cols else "loadouts"
     df = pd.concat([df.drop(loadout_cols, axis=1), extract_loadouts(df, CONF)], axis=1)
 
-    # 2b. 'player'/'brMissionStats', may not be returned for other game modes than BR, is a Series of dict (with dict)
+    # 2b. 'player'/'brMissionStats', may not be returned for other game modes than BR,resu
+    #  is a Series of dict (with dict)
     if "brMissionStats" in df.columns.tolist():
         df = pd.concat(
             [df.drop(["brMissionStats"], axis=1), extract_missions(df)], axis=1
@@ -201,7 +204,7 @@ def res_to_df(res, CONF):
     df.dropna(axis=1, how="all", inplace=True)
     df = df.loc[
         :, ~df.columns.duplicated()
-    ]  # gl trying to remove dup cols in Pandas (if any col is a dict) ^_^
+    ]  # gl trying to remove dupl cols in Pandas (if any col is a dict) ^_^
 
     return df
 
