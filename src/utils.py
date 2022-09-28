@@ -81,6 +81,27 @@ def get_last_session_ids(matches):
     return [int(br_id) for br_id in match_ids]
 
 
+def get_last_session_type(matches):
+    """Extract last match type played (br or resu), from last session matches"""
+
+    # Add a col "session" with incremental number when duration between 2 games exceed 1 hour
+    df_matches = pd.DataFrame(matches)[["utcEndSeconds", "mode", "matchID"]]
+    df_matches["utcEndSeconds"] = df_matches["utcEndSeconds"].apply(
+        lambda x: datetime.fromtimestamp(x)
+    )
+    df_matches["session"] = (
+        df_matches["utcEndSeconds"].diff().dt.total_seconds() < -3600
+    ).cumsum() + 1
+
+    df_matches = df_matches.query(
+        "`mode`.str.contains('br_br') or `mode`.str.contains('br_rebirth')"
+    )
+    session_min_idx = df_matches.session.min()
+    last_type_selector = df_matches["mode"].tolist()[0]
+    last_type_selector = "br" if not "rebirth" in last_type_selector else "resurgence"
+    return last_type_selector
+
+
 def get_gamertag(matches):
     """
     A player can be searchable with a given name but having a different gamertag in-game

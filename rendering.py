@@ -212,7 +212,7 @@ def render_last_session(last_stats, gamertag, CONF):
     )
 
     # to narrow spaces between several figures / components
-    height = len(last_stats) * 30 + 40
+    height = len(last_stats) * 30 + 45
     fig.update_layout(width=600, height=height, margin=dict(l=1, r=0, b=0, t=1))
 
     config = {"displayModeBar": False}

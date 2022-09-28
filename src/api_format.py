@@ -199,7 +199,7 @@ def res_to_df(res, CONF):
 
     #### final
 
-    # after we flattened all the entries, columns with nulls can exist (e.g in 'brmissionstats'),
+    # after we f lattened all the entries, columns with nulls can exist (e.g in 'brmissionstats'),
     # also the final result may contain duplicate entries, most probably "rank" that's returned twice by the API
     df.dropna(axis=1, how="all", inplace=True)
     df = df.loc[
