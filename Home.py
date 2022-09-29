@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 import pandas as pd
 import httpx
+import xgboost as xgb
 
 import streamlit as st
 from streamlit_option_menu import option_menu
@@ -22,6 +23,7 @@ from src import (
     kd_history,
     profile_details,
     session_details,
+    predict,
 )
 
 import rendering
@@ -179,6 +181,10 @@ async def main():
             # Extract last session match ids, for the last played type (br/resu only)*
             last_type_ids = utils.get_last_session_ids(recent_matches)
 
+            # Extract last game type (br or resu) played to know if we can apply our model
+            # to predict avg lobby kd for our last resurgence matches
+            last_type_played = utils.get_last_session_type(recent_matches)
+
             # API results are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
             recent_matches = api_format.res_to_df(recent_matches, CONF)
             recent_matches = api_format.format_df(recent_matches, CONF, LABELS)
@@ -217,6 +223,31 @@ async def main():
                         httpxClient, platform, last_type_ids
                     )
 
+                # Predict Lobby KD (from game stats, not actual players' k/d ratios!)
+                # (if our last match are of type resurgence)
+
+                if last_type_played == "resurgence":
+                    df_idx, df_features = predict.pipeline_transform(last_session)
+                    model = xgb.XGBRegressor()
+                    model.load_model("src/model/xgb_model_lobby_kd_2.json")
+                    prediction = model.predict(df_features)
+                    df_idx.insert(2, "lobby kd", prediction.tolist())
+                    df_idx.sort_values(by="utcEndSeconds", ascending=True, inplace=True)
+                    # keep only max last 4 matches (for rendering purposes...)
+                    df_idx = df_idx.tail(4).sort_values(
+                        by="utcEndSeconds", ascending=True
+                    )
+
+                    st.caption("Last matches estimated Lobby KD :")
+                    columns = st.columns(len(df_idx))
+                    for idx, col in enumerate(columns):
+                        with col:
+                            st.text(
+                                f" |{idx+1}.({df_idx.iloc[idx]['utcEndSeconds'].strftime('%H:%M')}) -> {round(df_idx.iloc[idx]['lobby kd'],2)}"
+                            )
+
+                    # st.write(pd.concat([df_indexes, prediction]))
+
                 # API results are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
                 last_session = api_format.res_to_df(last_session, CONF)
                 last_session = api_format.format_df(last_session, CONF, LABELS)
@@ -227,6 +258,7 @@ async def main():
                 )
                 last_stats = session_details.stats_last_session(last_session, teammates)
 
+                st.caption("Team/mates aggregated stats :")
                 rendering.render_last_session(last_stats, gamertag, CONF)
 
             # ----------------------------------------------------------#

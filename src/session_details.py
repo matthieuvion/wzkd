@@ -5,10 +5,11 @@ import pandas as pd
 """ 
 Inside
 ------
-Aggregate detailed stats for a session of matches, here our last matches played.
+Aggregate detailed stats for a session of matches, here our last matches (BR / Resurgence) played.
 
 - Before that we collected a list of matches ids, username, and collected detailed stats for thoses ids.
-- Also our API output (detailed matches stats) was already converted to a df, flattened and formated to be readable / operable (using api_format module)
+- Also our API output (detailed matches stats) was already converted to a df,
+  flattened and formated to be readable / operable (using api_format module)
 """
 
 
@@ -26,7 +27,7 @@ def get_session_teammates(last_session, gamertag):
 
 
 def stats_last_session(last_session, teammates):
-    """last session > n battle royale matches > formatted => agregated stats"""
+    """last session > n battle royale / Resurgence matches > formatted => agregated stats"""
 
     aggregations = {
         "mode": "count",
@@ -53,7 +54,7 @@ def stats_last_session(last_session, teammates):
     )
 
     def extract_best_loadout(last_session, teammates):
-        """Extract loadout of game with highest kd"""
+        """Extract loadout (1) of the game with the highest kd"""
         # prior, both last_session and teammates are sorted alphabetically by username
         loadout_idx = [
             last_session.query("@user in username")["kdRatio"].idxmax()
@@ -78,7 +79,7 @@ def stats_last_session(last_session, teammates):
 
 
 def get_players_weapons(last_session):
-    """Compute overall session weapons stats for Loadout 1"""
+    """Compute overall session weapons stats for Loadout 1, all players, all matches sessions"""
 
     df_weapons = last_session[["kills", "deaths", "loadout_1"]]
     df_weapons[["w1", "w2"]] = last_session["loadout_1"].str.split(" ", expand=True)

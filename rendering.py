@@ -164,7 +164,7 @@ def render_last_session(last_stats, gamertag, CONF):
     fig = go.Figure(
         data=[
             go.Table(
-                columnwidth=[15, 7, 12, 7, 7, 7],
+                columnwidth=[12, 6, 16, 4, 7, 6],
                 header=dict(
                     values=[
                         "<b>Player(s)</b>",
