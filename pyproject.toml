@@ -20,6 +20,7 @@ wzlight = "0.1.4"
 async-lru = "^1.0.3"
 xgboost = "^1.6.2"
 scikit-learn = "^1.1.2"
+setuptools = "^65.4.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
