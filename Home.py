@@ -223,27 +223,34 @@ async def main():
                         httpxClient, platform, last_type_ids
                     )
 
-                # Predict Lobby KD (from game stats, not actual players' k/d ratios!)
-                # (if our last match are of type resurgence)
-
+                # Predict Lobby KD (from game aggregated players stats, not actual players' k/d ratios!)
+                # if our last match are of type Resurgence
                 if last_type_played == "resurgence":
                     df_idx, df_features = predict.pipeline_transform(last_session)
                     model = xgb.XGBRegressor()
                     model.load_model("src/model/xgb_model_lobby_kd_2.json")
                     prediction = model.predict(df_features)
+
+                    # append predictions to matchIDs, datetimes
                     df_idx.insert(2, "lobby kd", prediction.tolist())
                     df_idx.sort_values(by="utcEndSeconds", ascending=True, inplace=True)
-                    # keep only max last 4 matches (for rendering purposes...)
-                    df_idx = df_idx.tail(4).sort_values(
+
+                    #  For rendering purposes keep only last n matches
+                    max_hist = 4
+                    df_idx = df_idx.tail(max_hist).sort_values(
                         by="utcEndSeconds", ascending=True
                     )
 
-                    st.caption("Last matches estimated Lobby KD :")
+                    st.caption("Last matches predicted Lobby KD :")
+
                     columns = st.columns(len(df_idx))
-                    for idx, col in enumerate(columns):
+                    hist_idx, row_idx = list(range(-max_hist + 1, 1)), list(
+                        range(0, max_hist)
+                    )
+                    for col, hist_idx, row_idx in zip(columns, hist_idx, row_idx):
                         with col:
                             st.text(
-                                f" |{idx+1}.({df_idx.iloc[idx]['utcEndSeconds'].strftime('%H:%M')}) -> {round(df_idx.iloc[idx]['lobby kd'],2)}"
+                                f" |{hist_idx}.({df_idx.iloc[row_idx]['utcEndSeconds'].strftime('%H:%M')}) -> {round(df_idx.iloc[row_idx]['lobby kd'],2)}"
                             )
 
                     # st.write(pd.concat([df_indexes, prediction]))
