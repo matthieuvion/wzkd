@@ -1,4 +1,5 @@
-from audioop import add
+from typing import List, Dict
+
 import pandas as pd
 import numpy as np
 import datetime
@@ -9,7 +10,6 @@ import streamlit as st
 
 
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.compose import make_column_transformer
 import xgboost as xgb
 
 """ 
@@ -24,11 +24,11 @@ Predicted lobby kd is meant to be similar to what wzranked.com computes with a g
 Notes on "lobby kd" & observed variance : 
 - "lobby kd" calculated as : average [players' kills/deaths )
 - Usually wzranked computes it from 50 to 90 % known player seasonal (resurgence) k/d, so 'true' lobby kd varies
-- Our model has a rmse of += [0.08 - 0.1] ; FYI "lobby k/d" usually navigates between 0.6 (rare) and 1.5 (rare)
+- Our model has a mean rmse of += [0.09 - 0.1] ; FYI "lobby k/d" usually navigates between 0.6 (rare) and 1.5 (rare)
 """
 
 
-def to_model_format(last_session):
+def to_model_format(last_session: List[Dict]):
     """
     Convert our last matches to what our training dataset looked like
     """
@@ -70,7 +70,7 @@ def to_model_format(last_session):
 
 def select_features(df):
     """
-    Retains the best columns we will build features upon
+    Retains the best columns to features to be built upon
     """
     to_keep = [
         "matchID",
@@ -132,7 +132,7 @@ def encode_features(df):
 
         return df
 
-    def one_hot(df, column):
+    def one_hot(df, column: str):
         """
         One Hot Encode one categorical column using sklearn
         ohe encoder previously fit when we built our model
@@ -370,9 +370,15 @@ def perform_aggregations(df):
     return df
 
 
-def pipeline_transform(last_session):
+@st.cache(show_spinner=False)
+def pipeline_transform(last_session: List[Dict]):
     """
     Apply all above functions to get our data ready for prediction
+
+    Returns:
+    -------
+    DataFrame,
+    matchID | utcEndSeconds | feature 1 | feature2 2 ...
     """
     df = to_model_format(last_session)
     df = select_features(df)
@@ -383,4 +389,31 @@ def pipeline_transform(last_session):
     df_indexes = df[["matchID", "utcEndSeconds"]]
     df_features = df.drop(["matchID", "utcEndSeconds"], axis=1)
 
-    return df_indexes, df_features
+    # return df_indexes, df_features
+    return df
+
+
+@st.cache
+def predict_lobby_kd(df):
+    """
+    Apply XGBoost Model to predict average lobby kd, from match stats
+
+    Returns:
+    --------
+    DataFrame,
+    matchID | utcEndSeconds | Estim. Avg KD
+    """
+
+    df_indexes, df_features = df[["matchID", "utcEndSeconds"]], df.drop(
+        ["matchID", "utcEndSeconds"], axis=1
+    )
+    # predict game(s) lobby kd
+    model = xgb.XGBRegressor()
+    model.load_model("src/model/xgb_model_lobby_kd_2.json")
+    prediction = model.predict(df_features)  # array
+
+    # append back predictions to matchID & utcEndSeconds
+    df_with_kd = df_indexes.copy()
+    df_with_kd.insert(2, "Lobby KD", prediction.tolist())
+
+    return df_with_kd

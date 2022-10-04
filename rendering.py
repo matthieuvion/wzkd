@@ -221,6 +221,27 @@ def render_last_session(last_stats, gamertag, CONF):
     )  # True, to bypass width setting and fit to st layout
 
 
+def render_last_resurgence_session(
+    history_grouped, sessions_indexes, df_idx, prediction, CONF, max_hist=4
+):
+    """Plotly rendering layer to last session n single resu matches + estimated lobby KD, as a table"""
+
+    # append Lobby KD prediction to df_idx (matchIDs, datetimes)
+    df_idx.insert(2, "lobby kd", prediction.tolist())
+    df_idx.sort_values(by="utcEndSeconds", ascending=True, inplace=True)
+    df_idx = df_idx.tail(max_hist).sort_values(by="utcEndSeconds", ascending=True)
+
+    #  For rendering purposes keep only last n matches (max_hist) from both prediction and last_session
+    df_idx = df_idx.tail(max_hist).sort_values(by="utcEndSeconds", ascending=True)
+    df_resurgence = history_grouped.get_group(sessions_indexes[0]).tail(max_hist)
+
+    # insert predicted kd along all others columns
+    df_resurgence.insert(4, "Lobby KD", df_idx["lobby kd"])
+
+    # format in Plotly table
+    st.write(df_resurgence)
+
+
 def render_team(team_kills, gamertag):
     """Render Team KDA concat with Team Weapons, in a plotly table"""
 

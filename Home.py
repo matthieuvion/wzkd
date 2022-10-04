@@ -10,7 +10,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 from stqdm import stqdm
 
-# enhanced Api child cls to boost some wzlight Api methods (add caching etc.)
+# enhanced wzlight/Api child cls to boost some wzlight client methods (caching etc.)
 # from wzlight import Api
 from src.enhance import EnhancedApi
 
@@ -52,34 +52,38 @@ LABELS = utils.load_labels()
 async def main():
 
     # ----------------------------------------------------------#
-    # Page config, Logo                                         #
+    # Page config, Logo, session states variables               #
     # ----------------------------------------------------------#
+
+    # Session state variables
+    # I.e For streamlit not to loop if a username is not entered & searched, store last entered user, close sidebar...
+    if "user" not in st.session_state:
+        st.session_state.user = None
+    if "isLogged" not in st.session_state:
+        st.session_state.isLogged = None
+    if "sidebar_state" not in st.session_state:
+        st.session_state.sidebar_state = "expanded"
 
     st.set_page_config(
         page_title="Home",
         page_icon="🦊",
         layout="centered",
-        initial_sidebar_state="auto",
+        initial_sidebar_state=st.session_state.sidebar_state,
     )
 
     # hacky way exists with css, but let's align logo to the right w/ 3 cols
-    col1, col2, col3 = st.columns((0.4, 0.4, 0.2))
+    col1, col2, col3 = st.columns((0.4, 0.4, 0.1))
     with col1:
         st.write("")
     with col2:
         st.write("")
     with col3:
-        st.image("data/DallE_logo_2.png", width=200, output_format="PNG")
-        st.markdown(" ")
+        st.image("data/DallE_logo_3.png", width=120, output_format="PNG")
     # st.markdown(" ")
 
-    # For streamlit not to loop if a username is not entered & searched
-    if "user" not in st.session_state:
-        st.session_state.user = None
-
-        # ----------------------------------------------------------#
-        # Sidebar / Search Player                                   #
-        # ----------------------------------------------------------#
+    # ----------------------------------------------------------#
+    # Sidebar / Search Player                                   #
+    # ----------------------------------------------------------#
 
     with st.sidebar:
 
@@ -104,17 +108,19 @@ async def main():
                     help=""" Check your privacy settings on callofduty.com/cod/profile so the app can retrieve your stats.  
                     Activision ID can be found in *Basic Info* and Psn/Bnet/xbox IDs in *Linked Account*.""",
                 )
-            submit_button = st.form_submit_button("submit / refresh")
+            submit_button = st.form_submit_button("Search")
 
     if username:
         st.session_state.user = username
+    if submit_button:
+        st.session_state.isLogged = True
 
-    # Optional
-    if not submit_button:
+    if not st.session_state.isLogged:
         st.stop()
 
-    # If our user is already searched -> session_state['user'] is not None anymore
-    # then we can go further and call COD API
+    # If our user is already searched -> session_state['user'] or isLogged is not None anymore
+    # then we can go further and call COD API, and displau
+    # Could also use isLogged session state, but we're saving options for refresh etc.
 
     if st.session_state.user:
         platform = PLATFORMS.get(platform)
@@ -128,12 +134,14 @@ async def main():
 
             profile = await enh_api.GetProfile(httpxClient, platform, username)
 
-            # check if profile exists (key "message" in API response dict.")
+            # Check if callofduty profile exists (key "message" in COD API response dict."), else st.stop()
             if "message" in list(profile.keys()):
                 st.warning(
-                    f"Wrong platform and/or User ID ({username}).\nWorking example : gentilrenard#2939, Bnet"
+                    f"Wrong platform and/or User ID ({username}). For working examples, try : (gentilrenard#2939, Bnet), (amadevs#1689, Bnet), (nicoyzovitch, Psn)"
                 )
                 st.stop()
+
+            # If profile valid, carry on
             profile_kpis = profile_details.get_kpis_profile(profile)
             lifetime_kd = profile_kpis["br_kd"]
             lifetime_kills_ratio = profile_kpis["br_kills_ratio"]
@@ -158,6 +166,11 @@ async def main():
                     with col3:
                         st.metric(label="kills avg br", value=lifetime_kills_ratio)
 
+            # Automatically close the Sidebar
+            # if st.session_state.sidebar_state == "expanded":
+            #    st.session_state.sidebar_state == "collapsed"
+            #    st.experimental_rerun()
+
             # Create 2 containers, later filled-in with charts/tables, once we collected recent matches history
             cont_stats_history = st.container()
             cont_last_session = st.container()
@@ -167,7 +180,7 @@ async def main():
             # ----------------------------------------------------------#
 
             # Get recent matches (history)
-            st.markdown("**Play Sessions History**")
+            st.markdown("**Play Sessions History - all types**")
             max_calls = 5
             with st.spinner(
                 f"Recent matches history : collecting last {max_calls *20} matches..."
@@ -217,45 +230,39 @@ async def main():
             # ----------------------------------------------------------#
 
             with cont_last_session:
-                st.markdown("**Details on most recent BR / Resu. session**")
+
+                # Title + "fake" refresh button to rerun the loop and get the very latest matches
+                col1, col2 = st.columns((9, 1))
+                with col1:
+                    st.markdown("**Most recent Battle Royale / Resurgence session**")
+                with col2:
+                    st.button("Refresh")
+
                 with st.spinner("Collecting every match of last session..."):
                     last_session = await enh_api.GetMatchList(
                         httpxClient, platform, last_type_ids
                     )
 
-                # Predict Lobby KD (from game aggregated players stats, not actual players' k/d ratios!)
+                # Predict Lobby KD (XGBoost model : from matches stats, not actual players' k/d ratios)
                 # if our last match are of type Resurgence
                 if last_type_played == "resurgence":
-                    df_idx, df_features = predict.pipeline_transform(last_session)
-                    model = xgb.XGBRegressor()
-                    model.load_model("src/model/xgb_model_lobby_kd_2.json")
-                    prediction = model.predict(df_features)
 
-                    # append predictions to matchIDs, datetimes
-                    df_idx.insert(2, "lobby kd", prediction.tolist())
-                    df_idx.sort_values(by="utcEndSeconds", ascending=True, inplace=True)
+                    df_resu_encoded = predict.pipeline_transform(last_session)
+                    df_resu_with_kd = predict.predict_lobby_kd(df_resu_encoded)
 
-                    #  For rendering purposes keep only last n matches
-                    max_hist = 4
-                    df_idx = df_idx.tail(max_hist).sort_values(
-                        by="utcEndSeconds", ascending=True
-                    )
+                    st.caption("Last matches predicted Lobby Avg KD :")
+                    st.write(df_resu_with_kd)
 
-                    st.caption("Last matches predicted Lobby KD :")
+                    # rendering.render_last_resurgence_session(
+                    #     history_grouped,
+                    #     sessions_indexes,
+                    #     df_idx,
+                    #     prediction,
+                    #     CONF,
+                    #     max_hist=4,
+                    # )
 
-                    columns = st.columns(len(df_idx))
-                    hist_idx, row_idx = list(range(-max_hist + 1, 1)), list(
-                        range(0, max_hist)
-                    )
-                    for col, hist_idx, row_idx in zip(columns, hist_idx, row_idx):
-                        with col:
-                            st.text(
-                                f" |{hist_idx}.({df_idx.iloc[row_idx]['utcEndSeconds'].strftime('%H:%M')}) -> {round(df_idx.iloc[row_idx]['lobby kd'],2)}"
-                            )
-
-                    # st.write(pd.concat([df_indexes, prediction]))
-
-                # API results are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
+                # API matches stats are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
                 last_session = api_format.res_to_df(last_session, CONF)
                 last_session = api_format.format_df(last_session, CONF, LABELS)
                 last_session = api_format.augment_df(last_session, LABELS)
@@ -263,9 +270,9 @@ async def main():
                 teammates = session_details.get_session_teammates(
                     last_session, gamertag
                 )
+                # last session matches stats are aggregated at session level : session k/d, Best Loadout, KDA...
                 last_stats = session_details.stats_last_session(last_session, teammates)
-
-                st.caption("Team/mates aggregated stats :")
+                st.caption("Team/mates session stats :")
                 rendering.render_last_session(last_stats, gamertag, CONF)
 
             # ----------------------------------------------------------#
@@ -282,7 +289,7 @@ async def main():
             with cont_stats_history:
                 st.markdown("**Performance History**")
 
-                # We want the first tab to be the most played game mode (aka. type)
+                # We want the first tab to be the most played game mode : BR or Resurgence or Others
                 sort_idx = [(k, len(v)) for k, v in data.items()]
                 sorted_labels = sorted(sort_idx, key=lambda x: x[1], reverse=True)
                 sorted_labels = [t[0] for t in sorted_labels]

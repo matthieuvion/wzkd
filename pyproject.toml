@@ -2,7 +2,7 @@
 name = "wzkd"
 version = "1.0.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["matthieu Vion <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
