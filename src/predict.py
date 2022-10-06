@@ -414,6 +414,8 @@ def predict_lobby_kd(df):
 
     # append back predictions to matchID & utcEndSeconds
     df_with_kd = df_indexes.copy()
-    df_with_kd.insert(2, "Lobby KD", prediction.tolist())
+    df_with_kd.insert(2, "lobbyKd", prediction.tolist())
+    df_with_kd
+    df_with_kd.sort_values(by="utcEndSeconds", ascending=False, inplace=True)
 
     return df_with_kd

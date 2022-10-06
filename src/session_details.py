@@ -13,20 +13,22 @@ Aggregate detailed stats for a session of matches, here our last matches (BR / R
 """
 
 
-def get_session_teammates(last_session, gamertag):
+def get_teammates(last_session_formatted, gamertag):
     """Get list of teammates from your last session of BR matches"""
-    ids = last_session.query("username == @gamertag")["matchID"].tolist()
-    teams = last_session.query("username == @gamertag")["team"].tolist()
+    ids = last_session_formatted.query("username == @gamertag")["matchID"].tolist()
+    teams = last_session_formatted.query("username == @gamertag")["team"].tolist()
     teammates = []
     for id_, team in zip(ids, teams):
         teammates.extend(
-            last_session.query("matchID == @id_ & team == @team")["username"].tolist()
+            last_session_formatted.query("matchID == @id_ & team == @team")[
+                "username"
+            ].tolist()
         )
 
     return sorted(list(set(teammates)), key=str.lower)
 
 
-def stats_last_session(last_session, teammates):
+def aggregated_stats(last_session_formatted, teammates):
     """last session > n battle royale / Resurgence matches > formatted => agregated stats"""
 
     aggregations = {
@@ -42,7 +44,7 @@ def stats_last_session(last_session, teammates):
     }
 
     agg_session = (
-        last_session.query("username in @teammates")
+        last_session_formatted.query("username in @teammates")
         .groupby("username")
         .agg(aggregations)
         .rename(columns={"mode": "played"})
@@ -53,14 +55,17 @@ def stats_last_session(last_session, teammates):
         by="username", key=lambda col: col.str.lower(), inplace=True
     )
 
-    def extract_best_loadout(last_session, teammates):
+    def extract_best_loadout(last_session_formatted, teammates):
         """Extract loadout (1) of the game with the highest kd"""
         # prior, both last_session and teammates are sorted alphabetically by username
         loadout_idx = [
-            last_session.query("@user in username")["kdRatio"].idxmax()
+            last_session_formatted.query("@user in username")["kdRatio"].idxmax()
             for user in teammates
         ]
-        return [last_session.iloc[loadout_i]["loadout_1"] for loadout_i in loadout_idx]
+        return [
+            last_session_formatted.iloc[loadout_i]["loadout_1"]
+            for loadout_i in loadout_idx
+        ]
 
     def gulag_format(gulag_value):
         return str(int(gulag_value * 100)) + " %"
@@ -70,7 +75,7 @@ def stats_last_session(last_session, teammates):
         # agg_session = agg_session.sort_values(by="played", ascending=False).head(4)
         return agg_session.sort_values(by="played", ascending=False).head(4)
 
-    best_loadout = extract_best_loadout(last_session, teammates)
+    best_loadout = extract_best_loadout(last_session_formatted, teammates)
     agg_session.insert(2, "loadoutBest", best_loadout)
     agg_session.gulagStatus = agg_session.gulagStatus.apply(gulag_format)
     agg_session = remove_session_teammates(agg_session)
@@ -78,11 +83,13 @@ def stats_last_session(last_session, teammates):
     return agg_session
 
 
-def get_players_weapons(last_session):
+def get_players_weapons(last_session_formatted):
     """Compute overall session weapons stats for Loadout 1, all players, all matches sessions"""
 
-    df_weapons = last_session[["kills", "deaths", "loadout_1"]]
-    df_weapons[["w1", "w2"]] = last_session["loadout_1"].str.split(" ", expand=True)
+    df_weapons = last_session_formatted[["kills", "deaths", "loadout_1"]]
+    df_weapons[["w1", "w2"]] = last_session_formatted["loadout_1"].str.split(
+        " ", expand=True
+    )
 
     first_agg = {"loadout_1": "count", "kills": "sum", "deaths": "sum"}
     primary = (
@@ -115,3 +122,21 @@ def get_players_weapons(last_session):
     weapons_stats = filter_players_weapons(weapons_stats)
 
     return weapons_stats.reset_index()
+
+
+def player_stats(last_session_formatted, gamertag):
+    """
+    Extract app's user (gamertag) stats only, from last session matches (with teammates/opponent data)
+    """
+
+    visible_cols = [
+        "utcEndSeconds",
+        "mode",
+        "teamPlacement",
+        "kills",
+        "deaths",
+        "assists",
+    ]
+    player_df = last_session_formatted.query("username == @gamertag")
+
+    return player_df[visible_cols]

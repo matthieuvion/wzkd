@@ -87,6 +87,8 @@ labels.duration = 'Game duration'
 labels.gulagStatus = 'Gulag'
 labels.played = 'Matches'
 labels.username = 'Player(s)'
+labels.lobbyKd = 'Lobby KD'
+labels.mode = 'Mode'
 
 
 

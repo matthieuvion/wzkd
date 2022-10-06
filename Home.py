@@ -180,7 +180,7 @@ async def main():
             # ----------------------------------------------------------#
 
             # Get recent matches (history)
-            st.markdown("**Play Sessions History - all types**")
+            st.markdown("**Play Sessions History**")
             max_calls = 5
             with st.spinner(
                 f"Recent matches history : collecting last {max_calls *20} matches..."
@@ -195,8 +195,9 @@ async def main():
             last_type_ids = utils.get_last_session_ids(recent_matches)
 
             # Extract last game type (br or resu) played to know if we can apply our model
-            # to predict avg lobby kd for our last resurgence matches
+            # to predict avg lobby kd for our last *resurgence* matches
             last_type_played = utils.get_last_session_type(recent_matches)
+            isResurgence = True if last_type_played == "resurgence" else False
 
             # API results are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
             recent_matches = api_format.res_to_df(recent_matches, CONF)
@@ -242,38 +243,35 @@ async def main():
                     last_session = await enh_api.GetMatchList(
                         httpxClient, platform, last_type_ids
                     )
-
-                # Predict Lobby KD (XGBoost model : from matches stats, not actual players' k/d ratios)
-                # if our last match are of type Resurgence
-                if last_type_played == "resurgence":
-
-                    df_resu_encoded = predict.pipeline_transform(last_session)
-                    df_resu_with_kd = predict.predict_lobby_kd(df_resu_encoded)
-
-                    st.caption("Last matches predicted Lobby Avg KD :")
-                    st.write(df_resu_with_kd)
-
-                    # rendering.render_last_resurgence_session(
-                    #     history_grouped,
-                    #     sessions_indexes,
-                    #     df_idx,
-                    #     prediction,
-                    #     CONF,
-                    #     max_hist=4,
-                    # )
+                # Predict Resurgence Lobby KD (XGBoost model : from matches stats, not actual players' k/d ratios)
+                # if our last match are of type Resurgence, else create a df with an empty 'lobby kd" column
+                if isResurgence:
+                    df_encoded = predict.pipeline_transform(last_session)
+                    df_with_kd = predict.predict_lobby_kd(df_encoded)
+                else:
+                    n_matches = len(
+                        list(set([dict_["matchID"] for dict_ in last_session]))
+                    )
+                    df_with_kd = pd.DataFrame({"Lobby KD": ["-"] * n_matches})
 
                 # API matches stats are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
                 last_session = api_format.res_to_df(last_session, CONF)
                 last_session = api_format.format_df(last_session, CONF, LABELS)
                 last_session = api_format.augment_df(last_session, LABELS)
 
-                teammates = session_details.get_session_teammates(
-                    last_session, gamertag
-                )
                 # last session matches stats are aggregated at session level : session k/d, Best Loadout, KDA...
-                last_stats = session_details.stats_last_session(last_session, teammates)
-                st.caption("Team/mates session stats :")
-                rendering.render_last_session(last_stats, gamertag, CONF)
+                teammates = session_details.get_teammates(last_session, gamertag)
+                last_stats = session_details.aggregated_stats(last_session, teammates)
+                st.caption("Teammates aggregated stats:")
+                rendering.session_details_aggregated(last_stats, gamertag, CONF)
+
+                # last session matches, player stats with Lobby KD appended
+                n_last_matches = 3
+                df_player = session_details.player_stats(last_session, gamertag)
+                st.caption(f"Last {n_last_matches} matches estim. Lobby KD")
+                rendering.session_details_player_matches(
+                    df_player, df_with_kd, CONF, n_last_matches
+                )
 
             # ----------------------------------------------------------#
             # Stats (kd) History Charts                                 #

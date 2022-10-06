@@ -59,7 +59,7 @@ def ag_render_session(df_session, CONF):
     df_session = df_session.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
     visible_cols = [
         "Ended at",
-        "mode",
+        "Mode",
         "#",
         "KD",
         "K D A",
@@ -134,7 +134,7 @@ Rendering tables with Plotly, **currently in use**
 """
 
 
-def render_last_session(last_stats, gamertag, CONF):
+def session_details_aggregated(last_stats, gamertag, CONF):
     """Plotly rendering layer to last session aggregated stats, as a table"""
 
     # tighter our data(frame)
@@ -164,7 +164,7 @@ def render_last_session(last_stats, gamertag, CONF):
     fig = go.Figure(
         data=[
             go.Table(
-                columnwidth=[12, 6, 16, 4, 7, 6],
+                columnwidth=[12, 5, 16, 4, 6, 6],
                 header=dict(
                     values=[
                         "<b>Player(s)</b>",
@@ -179,7 +179,7 @@ def render_last_session(last_stats, gamertag, CONF):
                     fill_color="#F5F7F7",
                     font=dict(color="#767783", size=14),
                     # style_header={"fontWeight": "bold"},
-                    height=30,
+                    height=28,
                 ),
                 cells=dict(
                     values=[
@@ -212,7 +212,7 @@ def render_last_session(last_stats, gamertag, CONF):
     )
 
     # to narrow spaces between several figures / components
-    height = len(last_stats) * 30 + 45
+    height = len(last_stats) * 30 + 20
     fig.update_layout(width=600, height=height, margin=dict(l=1, r=0, b=0, t=1))
 
     config = {"displayModeBar": False}
@@ -221,25 +221,83 @@ def render_last_session(last_stats, gamertag, CONF):
     )  # True, to bypass width setting and fit to st layout
 
 
-def render_last_resurgence_session(
-    history_grouped, sessions_indexes, df_idx, prediction, CONF, max_hist=4
-):
+def session_details_player_matches(df_player, df_with_kd, CONF, n_last_matches):
     """Plotly rendering layer to last session n single resu matches + estimated lobby KD, as a table"""
 
-    # append Lobby KD prediction to df_idx (matchIDs, datetimes)
-    df_idx.insert(2, "lobby kd", prediction.tolist())
-    df_idx.sort_values(by="utcEndSeconds", ascending=True, inplace=True)
-    df_idx = df_idx.tail(max_hist).sort_values(by="utcEndSeconds", ascending=True)
+    # tighter our data(frame)
+    df_player["K D A"] = utils.concat_cols(
+        df_player, to_concat=["kills", "deaths", "assists"], sep=" | "
+    )
+    # change date format before Plotly renders, because d3 format doesnt deal with dates
+    df_player["utcEndSeconds"] = df_player["utcEndSeconds"].apply(
+        lambda x: x.strftime("%H.%M")
+    )
 
-    #  For rendering purposes keep only last n matches (max_hist) from both prediction and last_session
-    df_idx = df_idx.tail(max_hist).sort_values(by="utcEndSeconds", ascending=True)
-    df_resurgence = history_grouped.get_group(sessions_indexes[0]).tail(max_hist)
+    # append Lobby KD to player stats df
+    df_player.reset_index(inplace=True)
+    df_player.insert(6, "lobbyKd", df_with_kd["lobbyKd"])
 
-    # insert predicted kd along all others columns
-    df_resurgence.insert(4, "Lobby KD", df_idx["lobby kd"])
+    # retain n last matches only:
+    df_player = df_player.head(n_last_matches)
 
-    # format in Plotly table
-    st.write(df_resurgence)
+    # Rename our columns according to CONF file
+    df_player = df_player.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
+
+    fig = go.Figure(
+        data=[
+            go.Table(
+                columnwidth=[5, 8, 3, 8, 8],
+                header=dict(
+                    values=[
+                        "<b>Ended at</b>",
+                        "<b>Mode</b>",
+                        "<b>#</b>",
+                        "<b>K D A</b>",
+                        "<b>Lobby KD</b>",
+                    ],  # header cols names, rename here if wanted
+                    align=["left"],
+                    line_color="lightgrey",
+                    fill_color="#F5F7F7",
+                    font=dict(color="#767783", size=14),
+                    # style_header={"fontWeight": "bold"},
+                    height=28,
+                ),
+                cells=dict(
+                    values=[
+                        df_player["Ended at"],
+                        df_player["Mode"],
+                        df_player["#"],
+                        df_player["K D A"],
+                        df_player["Lobby KD"],
+                    ],
+                    align="left",
+                    format=[
+                        "",
+                        "",
+                        "",
+                        "",
+                        ".2f",
+                    ],  # format columns values with d3 format
+                    # fill_color=[fill_colors],
+                    fill_color=["rgb(255,255,255)"],
+                    line_color="lightgrey",
+                    # font=dict(color="#31333F", size=14),
+                    # font_color=font_color,
+                    font_size=14,
+                    height=25,
+                ),
+            )
+        ]
+    )
+
+    # to narrow spaces between several figures / components
+    height = len(df_player) * 30 + 45
+    fig.update_layout(width=600, height=height, margin=dict(l=1, r=0, b=0, t=1))
+
+    config = {"displayModeBar": False}
+    st.plotly_chart(
+        fig, use_container_width=True, config=config
+    )  # True, to bypass width setting and fit to st layout
 
 
 def render_team(team_kills, gamertag):
@@ -437,13 +495,8 @@ def render_kd_history(df):
         ),
         autosize=False,
         width=400,
-        height=280,
-        margin=dict(
-            autoexpand=False,
-            l=0,
-            r=0,
-            t=0,  # top margin
-        ),
+        height=260,
+        margin=dict(autoexpand=False, l=0, r=0, t=0, b=40),  # t= top margin
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -551,13 +604,8 @@ def render_kd_history_small(df, col):
         ),
         autosize=False,
         width=400,
-        height=230,
-        margin=dict(
-            autoexpand=False,
-            l=0,
-            r=0,
-            t=0,  # top margin
-        ),
+        height=160,
+        margin=dict(autoexpand=False, l=0, r=0, t=0, b=20),  # top margin
         showlegend=False,
         plot_bgcolor="white",
     )
@@ -637,7 +685,7 @@ def render_weapons(weapons, col):
     )  # True if you wantr to bypass width setting
 
 
-def render_bullet_chart(
+def session_details_bullet_chart(
     lifetime_kd, lifetime_kills_ratio, player_kills, players_quartiles
 ):
     """Renders Players' Kills and KD in a plotly bullet chart : performance this match vs. lifetime, and all players quartiles"""
