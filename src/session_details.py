@@ -1,4 +1,3 @@
-import itertools
 import pandas as pd
 
 
@@ -28,8 +27,8 @@ def get_teammates(last_session_formatted, gamertag):
     return sorted(list(set(teammates)), key=str.lower)
 
 
-def aggregated_stats(last_session_formatted, teammates):
-    """last session > n battle royale / Resurgence matches > formatted => agregated stats"""
+def team_aggregated_stats(last_session_formatted, teammates):
+    """last session > n battle royale / Resurgence matches > formatted => team agregated stats"""
 
     aggregations = {
         "mode": "count",
@@ -43,15 +42,15 @@ def aggregated_stats(last_session_formatted, teammates):
         else 0,
     }
 
-    agg_session = (
+    team_session = (
         last_session_formatted.query("username in @teammates")
         .groupby("username")
         .agg(aggregations)
         .rename(columns={"mode": "played"})
         .reset_index()
     )
-    agg_session["kdRatio"] = agg_session.kills / agg_session.deaths
-    agg_session.sort_values(
+    team_session["kdRatio"] = team_session.kills / team_session.deaths
+    team_session.sort_values(
         by="username", key=lambda col: col.str.lower(), inplace=True
     )
 
@@ -70,21 +69,20 @@ def aggregated_stats(last_session_formatted, teammates):
     def gulag_format(gulag_value):
         return str(int(gulag_value * 100)) + " %"
 
-    def remove_session_teammates(agg_session):
+    def remove_session_teammates(team_session):
         """Remove some of random people you played with"""
-        # agg_session = agg_session.sort_values(by="played", ascending=False).head(4)
-        return agg_session.sort_values(by="played", ascending=False).head(4)
+        return team_session.sort_values(by="played", ascending=False).head(4)
 
     best_loadout = extract_best_loadout(last_session_formatted, teammates)
-    agg_session.insert(2, "loadoutBest", best_loadout)
-    agg_session.gulagStatus = agg_session.gulagStatus.apply(gulag_format)
-    agg_session = remove_session_teammates(agg_session)
+    team_session.insert(2, "loadoutBest", best_loadout)
+    team_session.gulagStatus = team_session.gulagStatus.apply(gulag_format)
+    team_session = remove_session_teammates(team_session)
 
-    return agg_session
+    return team_session
 
 
 def get_players_weapons(last_session_formatted):
-    """Compute overall session weapons stats for Loadout 1, all players, all matches sessions"""
+    """Compute overall session weapons stats for Loadout 1, all players, all session' matches"""
 
     df_weapons = last_session_formatted[["kills", "deaths", "loadout_1"]]
     df_weapons[["w1", "w2"]] = last_session_formatted["loadout_1"].str.split(

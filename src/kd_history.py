@@ -1,5 +1,6 @@
-from multiprocessing.reduction import DupFd
 import pandas as pd
+
+from src import kd_history
 
 """ 
 Inside
@@ -57,6 +58,21 @@ def add_gulag_pct(df):
     df["rows_count"] = df.index  # we already sorted/reindexed it w/ add_sorted_index
     df["gulagWinPct"] = df["W_cumsum"] * 100 / df["rows_count"]
     return df
+
+
+def extract_last_cum_kd(data):
+    """
+    Extract last cum kd from br, resu, others last recent matches
+    """
+    cum_kd = dict()
+    for label in ["Battle Royale", "Resurgence", "Others"]:
+        if len(data.get(label)) >= 1:
+            df_cum_kd = kd_history.add_cumulative_kd(data.get(label))
+            cum_kd[label] = round(df_cum_kd["kdRatioCum"].tolist()[-1], 2)
+        else:
+            cum_kd[label] = 1
+
+    return cum_kd
 
 
 def to_history(df, **kwargs):

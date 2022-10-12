@@ -26,7 +26,7 @@ After many tests, we found out that best results would be :
 - tabular data w/ Plotly tables : easier to use (e.g highlight cells) and fit nicer in layout (custom width)
 - rendering charts with plotly (over vega lite and Co), more help, more customization
 
-+ TODO/idea
++ TODO/ideas
 --------
 
 - try using Timeline component
@@ -34,15 +34,12 @@ After many tests, we found out that best results would be :
 """
 
 
-# maybe later, could be rendered as a timeline
-#
-
 """
-Rendering tables with Streamlit Ag Grid, currently not used but kept as exemples
+Render Charts/tables for sessions (matches) history ; Ag Grid
 """
 
 
-def ag_render_session(df_session, CONF):
+def sessions_history_table(df_session, CONF):
     """Rendering layer to matches history (history = --usually, several session tables)
 
     Streamlit or even AgGrid does not render well dfs with a multi index, aka : blank rows etc.)
@@ -85,52 +82,27 @@ def ag_render_session(df_session, CONF):
     )
 
 
-def ag_render_last_session(last_stats, CONF):
-    """Ag Grid rendering layer to last session stats, as a table"""
+def sessions_history_legend(dict_):
+    """Rendering layer to aggregated stats of matches history (multiple sessions tables)"""
+    # NewLine can't be (or couldn't find a working hack), must do multiple prints
 
-    # tighter our data(frame)
-    last_stats["K D A"] = utils.concat_cols(
-        last_stats, to_concat=["kills", "deaths", "assists"], sep=" | "
-    )
-    last_stats["Damage avg"] = utils.concat_cols(
-        last_stats, to_concat=["damageDone", "damageTaken"], sep=" | "
+    st.caption(
+        f"<div style='text-align: right;'>{dict_['utcEndSeconds'].strftime('%m.%d.%y')} </div>",
+        unsafe_allow_html=True,
     )
 
-    # customize table layout (streamlit ag grid component)
-    last_stats = last_stats.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
-    visible_cols = [
-        "Player(s)",
-        "Matches",
-        "KD",
-        "K D A",
-        "Damage avg",
-        "Gulag",
-    ]
-
-    gb = GridOptionsBuilder.from_dataframe(last_stats[visible_cols])
-    gb.configure_column(
-        "KD",
-        type=["numericColumn", "numberColumnFilter", "customNumericFormat"],
-        precision=2,
+    st.caption(
+        f"<div style='text-align: right;'>{dict_['played']} matches : {dict_['kdRatio']:.2f} k/d </div>",
+        unsafe_allow_html=True,
     )
-    # gb.configure_column(
-    #    "Gulag",
-    #    type=["customNumericFormat"],
-    #    precision=2,
-    # )
-
-    height = len(last_stats) * 30 + 40
-    table = AgGrid(
-        last_stats[visible_cols],
-        gridOptions=gb.build(),
-        height=height,  # hard coded height, works well for default aggrid theme
-        width="10%",  # not sure it is working ^_^
-        fit_columns_on_grid_load=False,
+    st.caption(
+        f"<div style='text-align: right;'>{round(dict_['kills']/dict_['played'], 2)} k. avg | {dict_['gulagStatus']:.0%} g. win </div>",
+        unsafe_allow_html=True,
     )
 
 
 """
-Rendering tables with Plotly, **currently in use**
+Render Charts/tables for last session (session details) ; Plotly
 """
 
 
@@ -300,6 +272,96 @@ def session_details_player_matches(df_player, df_with_kd, CONF, n_last_matches):
     )  # True, to bypass width setting and fit to st layout
 
 
+def session_details_bullet_chart(
+    last_session_formatted, gamertag, last_type_played, cum_kd
+):
+    """Renders a Plotly bullet chart(s)"""
+
+    # benchmark values : last session, all players KD, player last n matches KD,
+    def get_players_quartiles(last_session_formatted):
+        """all session players agregated stats, to serve as comparison values"""
+        return last_session_formatted[["kills", "kdRatio"]].describe().to_dict()
+
+    def get_player_quartiles(last_session_formatted, gamertag):
+        """Return player session kd"""
+        player_session = last_session_formatted.query("@gamertag in username")
+        return player_session[["kills", "kdRatio"]].describe().to_dict()
+
+    players_quartiles = get_players_quartiles(last_session_formatted)
+    player_quartiles = get_player_quartiles(last_session_formatted, gamertag)
+
+    players_kd_mean = round(players_quartiles["kdRatio"]["mean"], 1)
+    players_kd_median = round(players_quartiles["kdRatio"]["50%"], 1)
+    players_kd_Q3 = round(players_quartiles["kdRatio"]["75%"], 1)
+
+    type_converter = {"resurgence": "Resurgence", "br": "Battle Royale"}
+    player_cum_kd = cum_kd[type_converter[last_type_played]]
+
+    player_kd_mean = round(player_quartiles["kdRatio"]["mean"], 1)
+
+    gauge_length = int(player_kd_mean) + 2
+
+    fig = go.Figure()
+
+    # plot kd bullet chart
+
+    # X axis ticks labels
+    # ticks = [players_kd_median, players_kd_mean, players_kd_Q3, gauge_length]
+    ticks = [players_kd_median, players_kd_mean, gauge_length]
+
+    fig.add_trace(
+        go.Indicator(
+            mode="number+gauge+delta",
+            value=player_kd_mean,
+            domain={"x": [0.1, 1], "y": [0.1, 1]},
+            title={"text": "session K/D", "font_size": 13},
+            delta={"reference": player_cum_kd},
+            gauge={
+                "shape": "bullet",
+                "axis": {
+                    "range": [None, gauge_length],
+                    "tickmode": "array",
+                    "tickvals": ticks,
+                    "ticktext": [
+                        f"...{int(gauge_length)}" if i == gauge_length else i
+                        for i in ticks
+                    ],
+                },
+                "threshold": {
+                    "line": {"color": "rgb(230,10,120)", "width": 2},
+                    "thickness": 1,
+                    "value": player_cum_kd,
+                },
+                # color-filled background bars/steps with other benchmark values
+                "steps": [
+                    {"range": [0, players_kd_median], "color": "lightgrey"},
+                    {
+                        "range": [players_kd_median, players_kd_mean],
+                        "color": "darkgrey",
+                    },
+                    # {"range": [players_kd_mean, players_kd_Q3], "color": "lightgrey"},
+                ],
+                "bar": {"color": "black"},
+            },
+        )
+    )
+    # kept as example: to add another bullet chart
+
+    # ticks = [kills_median, kills_mean, kills_Q3, len_gauge_kills]
+    # fig.add_trace(
+    # go.Indicator(
+    # mode="number+gauge+delta",
+    # (...)
+
+    fig.update_layout(height=60, width=800, margin={"t": 1, "b": 18, "l": 1, "r": 10})
+    st.plotly_chart(fig, use_container_width=False)
+
+
+"""
+Render Charts/table, others, not used yet or kept as a (working) example
+"""
+
+
 def render_team(team_kills, gamertag):
     """Render Team KDA concat with Team Weapons, in a plotly table"""
 
@@ -408,35 +470,11 @@ def render_players(players_kills):
 
 
 """
-Misc streamlit "hacky-iiiish" ways to display data
-"""
-
-
-def render_session_stats(dict_):
-    """Rendering layer to aggregated stats of matches history (multiple sessions tables)"""
-    # NewLine can't be (or couldn't find a working hack), must do multiple prints
-
-    st.caption(
-        f"<div style='text-align: right;'>{dict_['utcEndSeconds'].strftime('%m.%d.%y')} </div>",
-        unsafe_allow_html=True,
-    )
-
-    st.caption(
-        f"<div style='text-align: right;'>{dict_['played']} matches : {dict_['kdRatio']:.2f} k/d </div>",
-        unsafe_allow_html=True,
-    )
-    st.caption(
-        f"<div style='text-align: right;'>{round(dict_['kills']/dict_['played'], 2)} k. avg | {dict_['gulagStatus']:.0%} g. win </div>",
-        unsafe_allow_html=True,
-    )
-
-
-"""
 Rendering charts with Plotly
 """
 
 
-def render_kd_history(df):
+def history_kd(df):
     """Render KD and Cumulative KD of last matches"""
 
     y_axis = ["kdRatioRollAvg", "kdRatioCum"]
@@ -553,7 +591,7 @@ def render_kd_history(df):
     )  # True if you wantr to bypass width setting
 
 
-def render_kd_history_small(df, col):
+def history_kd_small(df, col):
     """Render KD and Cumulative KD of last matches as Plotly Scatter lines"""
 
     axis_labels = {
@@ -685,99 +723,48 @@ def render_weapons(weapons, col):
     )  # True if you wantr to bypass width setting
 
 
-def session_details_bullet_chart(
-    lifetime_kd, lifetime_kills_ratio, player_kills, players_quartiles
-):
-    """Renders Players' Kills and KD in a plotly bullet chart : performance this match vs. lifetime, and all players quartiles"""
+def ag_render_last_session(last_stats, CONF):
+    """
+    Ag Grid rendering layer to last session stats, as a table
+    Currently not in use (Plotly instead), kept as example
+    """
 
-    # match values
-    # readify some variables (from Profile & Match stats) to make our comparisons more explicit
-    kd_player = player_kills["KD"] if not player_kills["KD"] == 0 else 0.1
-    kd_mean = round(players_quartiles["KD"]["mean"], 1)
-    kd_median = round(players_quartiles["KD"]["50%"], 1)
-    kd_Q3 = round(players_quartiles["KD"]["75%"], 1)
-    kd_max = round(players_quartiles["KD"]["max"], 1)
-
-    kills_player = player_kills["Kills"] if not player_kills["KD"] == 0 else 0.1
-    kills_mean = round(players_quartiles["Kills"]["mean"], 1)
-    kills_median = round(players_quartiles["Kills"]["50%"], 1)
-    kills_Q3 = round(players_quartiles["Kills"]["75%"], 1)
-    kills_max = round(players_quartiles["Kills"]["max"], 1)
-
-    len_gauge_kd = 2
-    len_gauge_kills = 6
-    fig = go.Figure()
-
-    # plot kd bullet chart
-    ticks = [kd_median, kd_mean, kd_Q3, len_gauge_kd]
-
-    fig.add_trace(
-        go.Indicator(
-            mode="number+gauge+delta",
-            value=kd_player,
-            domain={"x": [0.1, 1], "y": [0.8, 1]},
-            title={"text": "K/D", "font_size": 15},
-            delta={"reference": lifetime_kd},
-            gauge={
-                "shape": "bullet",
-                "axis": {
-                    "range": [None, len_gauge_kd],
-                    "tickmode": "array",
-                    "tickvals": ticks,
-                    "ticktext": [
-                        f"...{int(kd_max)}" if i == len_gauge_kd else i for i in ticks
-                    ],
-                },
-                "threshold": {
-                    "line": {"color": "black", "width": 2},
-                    "thickness": 0.75,
-                    "value": lifetime_kd,
-                },
-                "steps": [
-                    {"range": [0, kd_median], "color": "grey"},
-                    {"range": [kd_median, kd_mean], "color": "darkgrey"},
-                    {"range": [kd_mean, kd_Q3], "color": "lightgrey"},
-                ],
-                "bar": {"color": "black"},
-            },
-        )
+    # tighter our data(frame)
+    last_stats["K D A"] = utils.concat_cols(
+        last_stats, to_concat=["kills", "deaths", "assists"], sep=" | "
+    )
+    last_stats["Damage avg"] = utils.concat_cols(
+        last_stats, to_concat=["damageDone", "damageTaken"], sep=" | "
     )
 
-    # plot kills bullet chart
-    ticks = [kills_median, kills_mean, kills_Q3, len_gauge_kills]
+    # customize table layout (streamlit ag grid component)
+    last_stats = last_stats.rename(columns=CONF.get("APP_DISPLAY").get("labels"))
+    visible_cols = [
+        "Player(s)",
+        "Matches",
+        "KD",
+        "K D A",
+        "Damage avg",
+        "Gulag",
+    ]
 
-    fig.add_trace(
-        go.Indicator(
-            mode="number+gauge+delta",
-            value=kills_player,
-            domain={"x": [0.1, 1], "y": [0.4, 0.6]},
-            title={"text": "Kills", "font_size": 15},
-            delta={"reference": lifetime_kills_ratio},
-            gauge={
-                "shape": "bullet",
-                "axis": {
-                    "range": [None, len_gauge_kills],
-                    "tickmode": "array",
-                    "tickvals": ticks,
-                    "ticktext": [
-                        f"...{int(kills_max)}" if i == len_gauge_kills else i
-                        for i in ticks
-                    ],
-                },
-                "threshold": {
-                    "line": {"color": "black", "width": 2},
-                    "thickness": 0.75,
-                    "value": lifetime_kills_ratio,
-                },
-                "steps": [
-                    {"range": [0, kills_median], "color": "grey"},
-                    {"range": [kills_median, kills_mean], "color": "darkgrey"},
-                    {"range": [kills_mean, kills_Q3], "color": "lightgrey"},
-                ],
-                "bar": {"color": "black"},
-            },
-        )
+    gb = GridOptionsBuilder.from_dataframe(last_stats[visible_cols])
+    gb.configure_column(
+        "KD",
+        type=["numericColumn", "numberColumnFilter", "customNumericFormat"],
+        precision=2,
     )
+    # gb.configure_column(
+    #    "Gulag",
+    #    type=["customNumericFormat"],
+    #    precision=2,
+    # )
 
-    fig.update_layout(height=180, width=600, margin={"t": 0, "b": 0, "l": 15, "r": 0})
-    st.plotly_chart(fig, use_container_width=False)
+    height = len(last_stats) * 30 + 40
+    table = AgGrid(
+        last_stats[visible_cols],
+        gridOptions=gb.build(),
+        height=height,  # hard coded height, works well for default aggrid theme
+        width="10%",  # not sure it is working ^_^
+        fit_columns_on_grid_load=False,
+    )

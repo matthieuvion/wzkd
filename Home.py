@@ -56,7 +56,7 @@ async def main():
     # ----------------------------------------------------------#
 
     # Session state variables
-    # I.e For streamlit not to loop if a username is not entered & searched, store last entered user, close sidebar...
+    # I.e For streamlit not to loop if a username is not entered & searched, store last entered user...
     if "user" not in st.session_state:
         st.session_state.user = None
     if "isLogged" not in st.session_state:
@@ -120,8 +120,7 @@ async def main():
 
     # If our user is already searched -> session_state['user'] or isLogged is not None anymore
     # then we can go further and call COD API, and displau
-    # Could also use isLogged session state, but we're saving options for refresh etc.
-
+    # Could also use isLogged session state, but we're saving some options
     if st.session_state.user:
         platform = PLATFORMS.get(platform)
 
@@ -176,7 +175,7 @@ async def main():
             cont_last_session = st.container()
 
             # ----------------------------------------------------------#
-            # Match History                                             #
+            # Matches (to Sessions) History                             #
             # ----------------------------------------------------------#
 
             # Get recent matches (history)
@@ -191,13 +190,12 @@ async def main():
             # in-game gamertag can be different from api username
             gamertag = utils.get_gamertag(recent_matches)
 
-            # Extract last session match ids, for the last played type (br/resu only)*
+            # Extract last session match ids, for the last played match type (br/resu only)*
             last_type_ids = utils.get_last_session_ids(recent_matches)
 
             # Extract last game type (br or resu) played to know if we can apply our model
             # to predict avg lobby kd for our last *resurgence* matches
             last_type_played = utils.get_last_session_type(recent_matches)
-            isResurgence = True if last_type_played == "resurgence" else False
 
             # API results are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
             recent_matches = api_format.res_to_df(recent_matches, CONF)
@@ -205,7 +203,7 @@ async def main():
             recent_matches = api_format.augment_df(recent_matches, LABELS)
 
             # Reshape our matches to a "sessions history" (gap between 2 consecutive matches > 1 hour)
-            # Perform stats aggregations for each session, then render with st.aggr
+            # Perform stats aggregations for each session, then render with st.aggrid
             df_sessions_history = sessions_history.to_history(
                 recent_matches, CONF, LABELS
             )
@@ -222,9 +220,74 @@ async def main():
                 df_session = history_grouped.get_group(idx)
                 col1, col2 = st.columns((0.2, 0.8))
                 with col1:
-                    rendering.render_session_stats(dict_)
+                    rendering.sessions_history_legend(dict_)
                 with col2:
-                    rendering.ag_render_session(df_session, CONF)
+                    rendering.sessions_history_table(df_session, CONF)
+
+            # ----------------------------------------------------------#
+            # Performance History ("kd history")                        #
+            # ----------------------------------------------------------#
+
+            # Recent matches are split in 3 types (br, resu, others), in 3 separate tabs
+            # They're stored in a 3-entries-dict so we won't filter afterwards & the app does not rerun
+            data = {}
+            types = ["Battle Royale", "Resurgence", "Others"]
+            for type_ in types:
+                data[type_] = utils.filter_history(recent_matches, LABELS, select=type_)
+
+            # store last n games final-cumulative KD for each game mode in a dict, for future benchmarks
+            cum_kd = kd_history.extract_last_cum_kd(data)
+            st.write(cum_kd)
+
+            with cont_stats_history:
+                st.markdown("**Performance History**")
+
+                # We want the first tab to be the most played game mode : BR or Resurgence or Others
+                sort_idx = [(k, len(v)) for k, v in data.items()]
+                sorted_labels = sorted(sort_idx, key=lambda x: x[1], reverse=True)
+                sorted_labels = [t[0] for t in sorted_labels]
+
+                tab1, tab2, tab3 = st.tabs(sorted_labels)
+
+                # For every game mode, render charts in a separate tab :
+                # 1 main chart (kd) on top of 2 or 3 smaller charts, organized in columns
+                for tab, tab_label in zip([tab1, tab2, tab3], sorted_labels):
+                    with tab:
+                        # if enough data points for this game mode :
+                        if len(data[tab_label]) >= 2:
+
+                            # main chart : K/D history scatter line
+                            df_kd_history = kd_history.to_history(data.get(tab_label))
+                            rendering.history_kd(df_kd_history)
+
+                            if not tab_label == "Battle Royale":
+                                # small charts : Cumulative / avg given indicator, 2 cols layout
+                                col1, col2 = st.columns((0.5, 0.5))
+                                with col1:
+                                    rendering.history_kd_small(
+                                        df_kd_history, col="killsCumAvg"
+                                    )
+                                with col2:
+                                    rendering.history_kd_small(
+                                        df_kd_history, col="damageDoneCumAvg"
+                                    )
+                            else:
+                                # small charts : Cumulative / avg given indicator, 3 cols layout
+                                col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
+                                with col1:
+                                    rendering.history_kd_small(
+                                        df_kd_history, col="killsCumAvg"
+                                    )
+                                with col2:
+                                    rendering.history_kd_small(
+                                        df_kd_history, col="damageDoneCumAvg"
+                                    )
+                                with col3:
+                                    rendering.history_kd_small(
+                                        df_kd_history, col="gulagWinPct"
+                                    )
+                        else:
+                            st.caption("Not enough matches played in recent history")
 
             # ----------------------------------------------------------#
             # Last Session Details                                      #
@@ -245,94 +308,44 @@ async def main():
                     )
                 # Predict Resurgence Lobby KD (XGBoost model : from matches stats, not actual players' k/d ratios)
                 # if our last match are of type Resurgence, else create a df with an empty 'lobby kd" column
-                if isResurgence:
+                if last_type_played == "resurgence":
                     df_encoded = predict.pipeline_transform(last_session)
-                    df_with_kd = predict.predict_lobby_kd(df_encoded)
+                    df_predicted_kd = predict.predict_lobby_kd(df_encoded)
                 else:
                     n_matches = len(
                         list(set([dict_["matchID"] for dict_ in last_session]))
                     )
-                    df_with_kd = pd.DataFrame({"Lobby KD": ["-"] * n_matches})
+                    df_predicted_kd = pd.DataFrame({"Lobby KD": ["-"] * n_matches})
 
                 # API matches stats are flattened, reshaped/formated, augmented (e.g. gulag W/L entry)
                 last_session = api_format.res_to_df(last_session, CONF)
                 last_session = api_format.format_df(last_session, CONF, LABELS)
                 last_session = api_format.augment_df(last_session, LABELS)
 
-                # last session matches stats are aggregated at session level : session k/d, Best Loadout, KDA...
-                teammates = session_details.get_teammates(last_session, gamertag)
-                last_stats = session_details.aggregated_stats(last_session, teammates)
-                st.caption("Teammates aggregated stats:")
-                rendering.session_details_aggregated(last_stats, gamertag, CONF)
-
-                # last session matches, player stats with Lobby KD appended
+                # last session matches, player stats with predicted Lobby KD appended
                 n_last_matches = 3
                 df_player = session_details.player_stats(last_session, gamertag)
-                st.caption(f"Last {n_last_matches} matches estim. Lobby KD")
-                rendering.session_details_player_matches(
-                    df_player, df_with_kd, CONF, n_last_matches
+
+                # render Lobbies KD + players stats & player performance bullet chart
+                st.caption(
+                    f"Session KD vs. last 100 games (threshold), median/mean all players this session (ticks)"
+                )
+                rendering.session_details_bullet_chart(
+                    last_session, gamertag, last_type_played, cum_kd
                 )
 
-            # ----------------------------------------------------------#
-            # Stats (kd) History Charts                                 #
-            # ----------------------------------------------------------#
+                st.caption(f"Last {n_last_matches} matches estim. Lobby KD")
+                rendering.session_details_player_matches(
+                    df_player, df_predicted_kd, CONF, n_last_matches
+                )
 
-            # Recent matches are split in 3 types (br, resu, others)
-            # and stored in a dict with 3 entries so we wont filter afterwards & the app does not rerun
-            data = {}
-            types = ["Battle Royale", "Resurgence", "Others"]
-            for type_ in types:
-                data[type_] = utils.filter_history(recent_matches, LABELS, select=type_)
-
-            with cont_stats_history:
-                st.markdown("**Performance History**")
-
-                # We want the first tab to be the most played game mode : BR or Resurgence or Others
-                sort_idx = [(k, len(v)) for k, v in data.items()]
-                sorted_labels = sorted(sort_idx, key=lambda x: x[1], reverse=True)
-                sorted_labels = [t[0] for t in sorted_labels]
-
-                tab1, tab2, tab3 = st.tabs(sorted_labels)
-
-                # For every game mode, render charts in a separate tab :
-                # 1 main chart (kd) on top of 2 or 3 smaller charts, organized in columns
-                for tab, tab_label in zip([tab1, tab2, tab3], sorted_labels):
-                    with tab:
-                        # if enough data points for this game mode :
-                        if len(data[tab_label]) >= 2:
-
-                            # main chart : K/D history scatter line
-                            df_kd = kd_history.to_history(data.get(tab_label))
-                            rendering.render_kd_history(df_kd)
-
-                            if not tab_label == "Battle Royale":
-                                # small charts : Cumulative / avg given indicator, 2 cols layout
-                                col1, col2 = st.columns((0.5, 0.5))
-                                with col1:
-                                    rendering.render_kd_history_small(
-                                        df_kd, col="killsCumAvg"
-                                    )
-                                with col2:
-                                    rendering.render_kd_history_small(
-                                        df_kd, col="damageDoneCumAvg"
-                                    )
-                            else:
-                                # small charts : Cumulative / avg given indicator, 3 cols layout
-                                col1, col2, col3 = st.columns((0.5, 0.5, 0.5))
-                                with col1:
-                                    rendering.render_kd_history_small(
-                                        df_kd, col="killsCumAvg"
-                                    )
-                                with col2:
-                                    rendering.render_kd_history_small(
-                                        df_kd, col="damageDoneCumAvg"
-                                    )
-                                with col3:
-                                    rendering.render_kd_history_small(
-                                        df_kd, col="gulagWinPct"
-                                    )
-                        else:
-                            st.caption("Not enough matches played in recent history")
+                # last session matches stats are aggregated at last session, team level : session k/d, Best Loadout, KDA...
+                teammates = session_details.get_teammates(last_session, gamertag)
+                team_stats = session_details.team_aggregated_stats(
+                    last_session, teammates
+                )
+                st.caption("Team aggregated stats:")
+                rendering.session_details_aggregated(team_stats, gamertag, CONF)
 
 
 if __name__ == "__main__":
