@@ -11,7 +11,7 @@ It is the main facade which relies on two other personal projects to run :<br>
 - [wzlight](https://github.com/matthieuvion/wzkd) (also on pypi) : a light, asynchronous python wrapper for 'Callof' API
 - [match2kd](https://github.com/matthieuvion/match2kd) : a XGBoost model aiming at predicting game difficulty ("lobby kd") potentially saving thousands -- otherwise mandatory, API calls to players' profiles and matchs.<br>
 
-![demo gif](https://github.com/matthieuvion/wzkd/blob/master/data/app_demo_v1.gif "demo gif")
+![demo gif](https://github.com/matthieuvion/wzkd/blob/master/data/app_demo_v2.gif "demo gif")
 
 ## Features
 
