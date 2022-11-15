@@ -14,7 +14,7 @@ Inside
 -----
 wzlight client enhancements
 
-- New class EnhancedApi than inherit wzlight Api Clsvariables and methods
+- New class EnhancedApi that inherits wzlight Api Cls variables and methods
 - Add async-compatible caching with async_lru lib to avoid consuming too many calls
 - Add backoff with backoff lib
 - Basic rate/concurrency limits e.g. getting data of list[matches]) w/ asyncio.Semaphore

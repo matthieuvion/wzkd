@@ -19,7 +19,3 @@ It is the main facade which relies on two other personal projects to run :<br>
 - Data (COD API) processing and stats aggregations using Pandas. Data collection is build on top of our other project "wzlight", an async wrapper for COD API.
 - No database (feature or not ^_^)), data is collected live from recent game history and a cache sytem try to prevent spamming COD API
 - Warzone/CallofDuty behind-the-scene : some documentation/notebooks/bookmarks, weapons/game modes labels and parsers.
-
-## Installation
-
-## Usage
