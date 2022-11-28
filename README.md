@@ -21,4 +21,4 @@ It is the main facade which relies on two other personal projects to run :<br>
 - No database (feature or not ^_^)), data is collected live from recent game history and a cache sytem try to prevent spamming COD API.
 - Data (COD API) processing and stats aggregations using Pandas. Data collection is build on top of our other project "wzlight", an async wrapper for COD API.
 - Implementation of an XGB model in the app.
-- Warzone/CallofDuty behind-the-scene : some documentation/notebooks/bookmarks, weapons/game modes labels and parsers; also take a look on ressources listed underneath.
+- Warzone/CallofDuty behind-the-scene : some documentation/notebooks/bookmarks, weapons/game modes labels and parsers; also take a look on ressources listed on [wzlight](https://github.com/matthieuvion/wzlight).
