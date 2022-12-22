@@ -1,6 +1,7 @@
 import asyncio
 import os
 from dotenv import load_dotenv
+import pickle
 
 import pandas as pd
 import httpx
@@ -131,7 +132,12 @@ async def main():
             # Search profile                                            #
             # ----------------------------------------------------------#
 
-            profile = await enh_api.GetProfile(httpxClient, platform, username)
+            # tmp patch to offline mode (load saved API responses), WZ1 API/data partly discontinued
+            if not CONF["APP_BEHAVIOR"]["mode"] == "offline":
+                profile = await enh_api.GetProfile(httpxClient, platform, username)
+            else:
+                with open("data/sample_profile.pkl", "rb") as f:
+                    profile = pickle.load(f)
 
             # Check if callofduty profile exists (key "message" in COD API response dict."), else st.stop()
             if "message" in list(profile.keys()):
@@ -181,12 +187,22 @@ async def main():
             # Get recent matches (history)
             st.markdown("**Play Sessions History**")
             max_calls = 5
-            with st.spinner(
-                f"Recent matches history : collecting last {max_calls *20} matches..."
-            ):
-                recent_matches = await enh_api.GetRecentMatchesWithDateLoop(
-                    httpxClient, platform, username, max_calls=max_calls
-                )
+
+            # tmp patch to offline mode (load saved API responses), WZ1 API/data partly discontinued
+            if not CONF["APP_BEHAVIOR"]["mode"] == "offline":
+                with st.spinner(
+                    f"Recent matches history : collecting last {max_calls *20} matches..."
+                ):
+                    recent_matches = await enh_api.GetRecentMatchesWithDateLoop(
+                        httpxClient, platform, username, max_calls=max_calls
+                    )
+            else:
+                with st.spinner(
+                    f"Recent matches history : collecting last {max_calls *20} matches..."
+                ):
+                    with open("data/sample_recent_matches.pkl", "rb") as f:
+                        recent_matches = pickle.load(f)
+
             # in-game gamertag can be different from api username
             gamertag = utils.get_gamertag(recent_matches)
 
@@ -302,10 +318,17 @@ async def main():
                 with col2:
                     st.button("Refresh")
 
-                with st.spinner("Collecting every match of last session..."):
-                    last_session = await enh_api.GetMatchList(
-                        httpxClient, platform, last_type_ids
-                    )
+                # tmp patch to offline mode (load saved API responses), WZ1 API/data partly discontinued
+                if not CONF["APP_BEHAVIOR"]["mode"] == "offline":
+                    with st.spinner("Collecting every match of last session..."):
+                        last_session = await enh_api.GetMatchList(
+                            httpxClient, platform, last_type_ids
+                        )
+                else:
+                    with st.spinner("Collecting every match of last session..."):
+                        with open("data/sample_last_session.pkl", "rb") as f:
+                            last_session = pickle.load(f)
+
                 # Predict Resurgence Lobby KD (XGBoost model : from matches stats, not actual players' k/d ratios)
                 # if our last match are of type Resurgence, else create a df with an empty 'lobby kd" column
                 if last_type_played == "resurgence":
@@ -334,7 +357,7 @@ async def main():
                     last_session, gamertag, last_type_played, cum_kd
                 )
 
-                st.caption(f"Last {n_last_matches} matches estim. Lobby KD")
+                st.caption(f"Last {n_last_matches} matches estimated Lobby KD")
                 rendering.session_details_player_matches(
                     df_player, df_predicted_kd, CONF, n_last_matches
                 )

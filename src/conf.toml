@@ -1,5 +1,5 @@
 [APP_BEHAVIOR]
-mode = "online"
+mode = "offline"
 filename.matches = "matches_20_1.pkl"
 filename.more_matches = "matches_60.pkl"
 filename.match = "match_br_1.pkl"
