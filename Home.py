@@ -119,7 +119,7 @@ async def main():
         st.stop()
 
     # If our user is already searched -> session_state['user'] or isLogged is not None anymore
-    # then we can go further and call COD API, and displau
+    # then we can go further and call COD API
     # Could also use isLogged session state, but we're saving some options
     if st.session_state.user:
         platform = PLATFORMS.get(platform)
