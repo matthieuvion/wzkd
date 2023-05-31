@@ -3,14 +3,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
 
-The app is accessible [there](https://matthieuvion-wzkd-home-rqmcr9.streamlitapp.com) as it is deployed through streamlit.io.<br>
+The app is accessible on [warzone1-kd.streamlit.app](https://warzone1-kd.streamlit.app).<br>
 **Update** : As of Nov 2022, Activision is transitioning to Warzone 2 and discontinued Warzone 1 API.The app is still functional but now works exclusively "offline", from previously saved API responses, with a default --fixed, username/platform.
 
 `wzkd` is a Streamlit app that collect, aggregate and visualize players' stats from Call Of Duty API (Warzone 1).<br>
 The app is live (no database), but optimized with (partially) asynchronous calls and custom caching methods.<br>
 It is the main facade which relies on two other personal projects to run :<br>
 - [wzlight](https://github.com/matthieuvion/wzlight) (also on pypi) : a light, asynchronous python wrapper for 'Callof' API (Warzone 1).
-- [match2kd](https://github.com/matthieuvion/match2kd) : a XGBoost model aiming at predicting game difficulty ("lobby kd") potentially saving thousands -- otherwise mandatory, API calls to players' profiles and matchs.<br>
+- [match2kd](https://github.com/matthieuvion/match2kd) : a XGBoost model aiming at predicting game difficulty ("lobby kd") from a match's features only, potentially saving *thousands* -- otherwise mandatory, API calls to players' profiles and matchs.<br>
 
 ![demo gif](https://github.com/matthieuvion/wzkd/blob/master/data/app_demo_v2.gif "demo gif")
 
