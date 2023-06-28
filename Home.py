@@ -51,7 +51,6 @@ LABELS = utils.load_labels()
 
 # client runs (partly) asynchronously, thus the async-await syntax
 async def main():
-
     # ----------------------------------------------------------#
     # Page config, Logo, session states variables               #
     # ----------------------------------------------------------#
@@ -87,9 +86,11 @@ async def main():
     # ----------------------------------------------------------#
 
     with st.sidebar:
-
         # Search Player block
         st.subheader("Search Player")
+        st.caption(
+            f"Warzone1 API is now discontinued. For demo purposes, user/platform below is still functional (previously saved calls)"
+        )
         with st.form(key="loginForm"):
             col1, col2 = st.columns((1, 1.5))
             with col1:
@@ -127,7 +128,6 @@ async def main():
 
         # httpx client (to use with wzlight COD API wrapper) as a context manager :
         async with httpx.AsyncClient() as httpxClient:
-
             # ----------------------------------------------------------#
             # Search profile                                            #
             # ----------------------------------------------------------#
@@ -271,7 +271,6 @@ async def main():
                     with tab:
                         # if enough data points for this game mode :
                         if len(data[tab_label]) >= 2:
-
                             # main chart : K/D history scatter line
                             df_kd_history = kd_history.to_history(data.get(tab_label))
                             rendering.history_kd(df_kd_history)
@@ -310,7 +309,6 @@ async def main():
             # ----------------------------------------------------------#
 
             with cont_last_session:
-
                 # Title + "fake" refresh button to rerun the loop and get the very latest matches
                 col1, col2 = st.columns((9, 1))
                 with col1:
@@ -353,11 +351,16 @@ async def main():
                 st.caption(
                     f"Session KD vs. last 100 games (threshold), median/mean all players this session (ticks)"
                 )
+                st.caption(
+                    f"A session consists of several matches played consecutively (< 1h in-between matches)"
+                )
                 rendering.session_details_bullet_chart(
                     last_session, gamertag, last_type_played, cum_kd
                 )
 
-                st.caption(f"Last {n_last_matches} matches estimated Lobby KD")
+                st.caption(
+                    f"Last {n_last_matches} matches estimated Lobby KD. The K/D is predicted by a model taking into account players' performance patterns"
+                )
                 rendering.session_details_player_matches(
                     df_player, df_predicted_kd, CONF, n_last_matches
                 )
